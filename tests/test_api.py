@@ -109,3 +109,16 @@ async def test_auth_error(hass: HomeAssistant, cloudflare) -> None:
 
     with pytest.raises(CloudflareAuthError):
         await client.async_verify_token()
+
+
+async def test_get_zones_paginates(hass: HomeAssistant, cloudflare) -> None:
+    cloudflare.zones.extend(
+        {"id": f"zone-{number}", "name": f"example-{number}.com"}
+        for number in range(2, 52)
+    )
+    client = CloudflareClient(async_get_clientsession(hass), TOKEN)
+
+    zones = await client.async_get_zones()
+
+    assert [zone.id for zone in zones] == [zone["id"] for zone in cloudflare.zones]
+    assert [path for _, path, _ in cloudflare.requests("GET")] == ["/zones", "/zones"]

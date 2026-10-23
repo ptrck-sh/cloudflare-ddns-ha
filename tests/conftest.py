@@ -91,7 +91,16 @@ class FakeCloudflare:
         if path == "/user/tokens/verify":
             return self._ok(method, url, {"status": "active"})
         if path == "/zones":
-            return self._ok(method, url, self.zones)
+            per_page = int(url.query.get("per_page", 50))
+            page = int(url.query.get("page", 1))
+            total_pages = max(1, -(-len(self.zones) // per_page))
+            start = (page - 1) * per_page
+            return self._ok(
+                method,
+                url,
+                self.zones[start : start + per_page],
+                result_info={"page": page, "total_pages": total_pages},
+            )
         if path == f"/zones/{ZONE_ID}":
             return self._ok(method, url, self.zones[0])
         if path == f"/zones/{ZONE_ID}/dns_records" and method == "GET":
@@ -120,8 +129,13 @@ class FakeCloudflare:
 
         raise AssertionError(f"Unexpected Cloudflare call {method} {path}")
 
-    def _ok(self, method, url, result) -> AiohttpClientMockResponse:
-        return self._reply(method, url, {"success": True, "result": result})
+    def _ok(
+        self, method, url, result, *, result_info=None
+    ) -> AiohttpClientMockResponse:
+        body = {"success": True, "result": result}
+        if result_info is not None:
+            body["result_info"] = result_info
+        return self._reply(method, url, body)
 
     @staticmethod
     def _reply(method, url, body, status=HTTPStatus.OK) -> AiohttpClientMockResponse:

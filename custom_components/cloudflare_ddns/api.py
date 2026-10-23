@@ -94,6 +94,18 @@ class CloudflareClient:
         params: dict[str, str] | None = None,
     ) -> Any:
         """Make a request and unwrap Cloudflare's envelope."""
+        body = await self._request_envelope(method, path, json=json, params=params)
+        return body.get("result")
+
+    async def _request_envelope(
+        self,
+        method: str,
+        path: str,
+        *,
+        json: dict[str, Any] | None = None,
+        params: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
+        """Make a request and return Cloudflare's envelope."""
         url = f"{CLOUDFLARE_API_BASE}{path}"
         timeout = aiohttp.ClientTimeout(total=API_REQUEST_TIMEOUT.total_seconds())
 
@@ -123,7 +135,7 @@ class CloudflareClient:
                         _describe_errors(body) or f"HTTP {resp.status}"
                     )
 
-                return body.get("result")
+                return body
 
         except TimeoutError as err:
             raise CloudflareApiError("Timed out talking to Cloudflare") from err
@@ -138,8 +150,17 @@ class CloudflareClient:
 
     async def async_get_zones(self) -> list[Zone]:
         """List the zones this token can see."""
-        result = await self._request("GET", "/zones", params={"per_page": "50"})
-        return [Zone(id=z["id"], name=z["name"]) for z in result or []]
+        zones: list[Zone] = []
+        page = 1
+        while True:
+            body = await self._request_envelope(
+                "GET", "/zones", params={"per_page": "50", "page": str(page)}
+            )
+            zones.extend(Zone(id=z["id"], name=z["name"]) for z in body["result"])
+            result_info = body.get("result_info") or {}
+            if result_info.get("page", page) >= result_info.get("total_pages", page):
+                return zones
+            page += 1
 
     async def async_get_zone(self, zone_id: str) -> Zone:
         """Fetch a single zone."""
