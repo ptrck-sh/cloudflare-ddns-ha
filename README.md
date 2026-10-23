@@ -55,7 +55,7 @@ The config flow then asks for:
 |---|---|
 | **API token** | Pasting the whole `Bearer ...` header works too. |
 | **Zone** | Skipped if the token only reaches one zone. |
-| **Record name** | `home`, `home.example.com`, or `@` for the domain itself. |
+| **Record name** | A single label such as `home`, a full name in the selected zone such as `home.example.com`, or `@` for the domain itself. Names with dots must be full names in the zone. |
 | **IPv4 / IPv6** | Which record types to track. |
 | **Proxied** | Only applied to records this integration creates. |
 | **TTL** | Seconds, or `1` for automatic. Ignored on proxied records. |

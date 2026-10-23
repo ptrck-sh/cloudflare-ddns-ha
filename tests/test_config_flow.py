@@ -16,7 +16,7 @@ from custom_components.cloudflare_ddns.const import (
     DOMAIN,
 )
 
-from .conftest import PUBLIC_V4, RECORD_NAME, TOKEN, ZONE_ID, ZONE_NAME
+from .conftest import PUBLIC_V4, PUBLIC_V6, RECORD_NAME, TOKEN, ZONE_ID, ZONE_NAME
 
 RECORD_INPUT = {
     CONF_RECORD_NAME: "home",
@@ -98,6 +98,28 @@ async def test_create_without_public_ip(hass: HomeAssistant, cloudflare) -> None
     assert result["errors"] == {"base": "no_public_ip"}
 
 
+async def test_create_records_retries_only_missing_type(
+    hass: HomeAssistant, cloudflare
+) -> None:
+    cloudflare.public_v6 = None
+    result = await _start(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {**RECORD_INPUT, CONF_IPV6: True}
+    )
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+
+    assert result["errors"] == {"base": "no_public_ip"}
+
+    cloudflare.public_v6 = PUBLIC_V6
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert [payload["type"] for _, _, payload in cloudflare.requests("POST")] == [
+        "A",
+        "AAAA",
+    ]
+
+
 async def test_already_configured(
     hass: HomeAssistant, cloudflare, config_entry
 ) -> None:
@@ -136,6 +158,50 @@ async def test_no_record_type(hass: HomeAssistant, cloudflare) -> None:
     )
 
     assert result["errors"] == {"base": "no_record_type"}
+
+
+async def test_rejects_record_in_another_zone(hass: HomeAssistant, cloudflare) -> None:
+    result = await _start(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {**RECORD_INPUT, CONF_RECORD_NAME: "foo.other.org"}
+    )
+
+    assert result["errors"] == {CONF_RECORD_NAME: "wrong_zone"}
+
+
+async def test_rejects_record_with_zone_name_suffix(
+    hass: HomeAssistant, cloudflare
+) -> None:
+    result = await _start(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {**RECORD_INPUT, CONF_RECORD_NAME: "notexample.com"}
+    )
+
+    assert result["errors"] == {CONF_RECORD_NAME: "wrong_zone"}
+
+
+async def test_accepts_record_in_selected_zone(hass: HomeAssistant, cloudflare) -> None:
+    cloudflare.add_record("A", PUBLIC_V4)
+
+    result = await _start(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {**RECORD_INPUT, CONF_RECORD_NAME: "home.example.com"}
+    )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_RECORD_NAME] == "home.example.com"
+
+
+async def test_accepts_zone_apex(hass: HomeAssistant, cloudflare) -> None:
+    cloudflare.add_record("A", PUBLIC_V4, name=ZONE_NAME)
+
+    result = await _start(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {**RECORD_INPUT, CONF_RECORD_NAME: "@"}
+    )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_RECORD_NAME] == ZONE_NAME
 
 
 async def test_reauth(hass: HomeAssistant, cloudflare, config_entry) -> None:

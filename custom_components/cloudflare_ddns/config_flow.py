@@ -156,7 +156,10 @@ class CloudflareDdnsConfigFlow(ConfigFlow, domain=DOMAIN):
 
             if not (self._options[CONF_IPV4] or self._options[CONF_IPV6]):
                 errors["base"] = "no_record_type"
-            elif not self._record_name.endswith(self._zone.name):
+            elif (
+                self._record_name != self._zone.name
+                and not self._record_name.endswith(f".{self._zone.name}")
+            ):
                 errors[CONF_RECORD_NAME] = "wrong_zone"
             else:
                 await self.async_set_unique_id(f"{self._zone.id}:{self._record_name}")
@@ -218,7 +221,7 @@ class CloudflareDdnsConfigFlow(ConfigFlow, domain=DOMAIN):
             session = async_get_clientsession(self.hass)
             client = CloudflareClient(session, self._token)
             try:
-                for record_type in self._missing:
+                for record_type in self._missing.copy():
                     want_v6 = record_type == RECORD_TYPE_IPV6
                     providers = IPV6_PROVIDERS if want_v6 else IPV4_PROVIDERS
                     ip = await async_get_public_ip(session, providers, want_v6=want_v6)
@@ -230,6 +233,7 @@ class CloudflareDdnsConfigFlow(ConfigFlow, domain=DOMAIN):
                         ttl=self._options[CONF_TTL],
                         proxied=self._options[CONF_PROXIED],
                     )
+                    self._missing.remove(record_type)
             except PublicIpError:
                 errors["base"] = "no_public_ip"
             except CloudflareAuthError:
@@ -410,4 +414,6 @@ def _normalise_record_name(value: str, zone_name: str) -> str:
         return zone_name
     if name.endswith(f".{zone_name}"):
         return name
-    return f"{name}.{zone_name}"
+    if "." not in name:
+        return f"{name}.{zone_name}"
+    return name

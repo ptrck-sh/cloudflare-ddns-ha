@@ -30,7 +30,7 @@
           "update_interval": "Check every"
         },
         "data_description": {
-          "record_name": "A host such as 'home', the full name 'home.example.com', or '@' for the domain itself.",
+          "record_name": "A single label such as 'home', a full name in this zone such as 'home.example.com', or '@' for the domain itself. Names with dots must be full names in this zone.",
           "proxied": "Proxying hides your real address behind Cloudflare, which defeats most reasons to run dynamic DNS. Leave this off unless the name is only used for web traffic.",
           "ttl": "Seconds, or 1 for automatic. Ignored on proxied records, which Cloudflare always sets to automatic.",
           "update_interval": "Minutes between checks. Cloudflare is only written to when the address actually changed."
