@@ -9,6 +9,9 @@ It is deliberately smaller than the integration:
 - The record must already exist. It updates a record, it never creates one.
   Create it by hand first, pointing at any address; the first run corrects it.
 - It reports through a notify action instead of firing events.
+- It checks the address only against an IPv4 pattern. A private answer, for
+  example from a captive portal, would be published; the integration rejects
+  those.
 
 ## Package
 
