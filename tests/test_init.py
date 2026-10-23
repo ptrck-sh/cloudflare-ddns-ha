@@ -207,3 +207,24 @@ async def test_diagnostics_redact(
     for secret in (TOKEN, ZONE_ID, PUBLIC_V4):
         assert secret not in dumped
     assert diagnostics["families"]["A"]["in_sync"] is True
+
+
+async def test_diagnostics_redact_ip_in_error(
+    hass: HomeAssistant, cloudflare, config_entry
+) -> None:
+    config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        config_entry, options={**config_entry.options, CONF_IPV6: True}
+    )
+    cloudflare.add_record("A", PUBLIC_V4)
+    cloudflare.public_v6 = PUBLIC_V4
+
+    await _setup(hass, config_entry)
+
+    diagnostics = await async_get_config_entry_diagnostics(hass, config_entry)
+
+    assert PUBLIC_V4 not in repr(diagnostics)
+    assert (
+        "returned '**REDACTED**', not a usable address"
+        in diagnostics["families"]["AAAA"]["error"]
+    )
