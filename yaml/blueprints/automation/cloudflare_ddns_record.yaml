@@ -1,0 +1,165 @@
+blueprint:
+  name: Cloudflare DDNS - keep an A record current
+  description: >-
+    Keeps one Cloudflare A record pointed at your current public IP and reports
+    changes to a notify service.
+
+
+    **This blueprint is not self-contained.** Blueprints can only carry an
+    automation, so the two `rest_command` definitions and the public IP sensor
+    must already exist in your configuration - install the package or the
+    `rest`/`rest_command` snippet from the README first.
+
+
+    Use this instead of the package's own automation when you want to keep
+    **several** records current: install the package once, then add one
+    blueprint automation per record.
+
+
+    **Note on the API token:** values entered into a blueprint are stored in
+    `automations.yaml` in plain text. If you would rather keep the token in
+    `secrets.yaml`, use the package's automation instead of this blueprint.
+  domain: automation
+  source_url: https://github.com/ptrck-sh/cloudflare-ddns-ha/blob/main/yaml/blueprints/automation/cloudflare_ddns_record.yaml
+  input:
+    ip_sensor:
+      name: Public IP sensor
+      description: The sensor holding your current public IPv4 address.
+      default: sensor.public_ip
+      selector:
+        entity:
+          filter:
+            domain: sensor
+    zone_id:
+      name: Cloudflare zone ID
+      description: >-
+        Cloudflare dashboard, pick the domain, Overview, right sidebar,
+        "Zone ID". 32 hex characters.
+      selector:
+        text:
+    auth_header:
+      name: Authorization header
+      description: >-
+        The full header value, including the word Bearer, e.g.
+        `Bearer abc123...`. Token needs Zone - DNS - Edit on this zone.
+      selector:
+        text:
+          type: password
+    record_name:
+      name: Record name
+      description: >-
+        The exact FQDN of the A record, e.g. `home.example.com`. The record
+        must already exist in Cloudflare; this never creates one.
+      selector:
+        text:
+    notify_action:
+      name: Notify action
+      description: >-
+        The notify action to report through, without the `notify.` prefix,
+        e.g. `home_assistant` for a Discord bot, or `persistent_notification`.
+      default: persistent_notification
+      selector:
+        text:
+    notify_target:
+      name: Notify target
+      description: >-
+        Target passed to the notify action, e.g. a Discord channel ID. Leave
+        empty for notify actions that take no target.
+      default: ""
+      selector:
+        text:
+    recheck_hours:
+      name: Safety-net interval
+      description: >-
+        How often to re-check regardless of sensor changes, in hours.
+      default: 6
+      selector:
+        number:
+          min: 1
+          max: 24
+          unit_of_measurement: hours
+
+mode: single
+max_exceeded: silent
+
+variables:
+  auth: !input auth_header
+  zone_id: !input zone_id
+  record_name: !input record_name
+  ip_sensor: !input ip_sensor
+  notify_action: !input notify_action
+  notify_target: !input notify_target
+
+triggers:
+  - trigger: state
+    entity_id: !input ip_sensor
+  - trigger: homeassistant
+    event: start
+  - trigger: time_pattern
+    hours: !input recheck_hours
+
+conditions:
+  - condition: template
+    value_template: >-
+      {{ states(ip_sensor) | regex_match('^(\d{1,3}\.){3}\d{1,3}$') }}
+
+actions:
+  - variables:
+      new_ip: "{{ states(ip_sensor) }}"
+      notify_data: >-
+        {{ {'target': [notify_target]} if notify_target else {} }}
+
+  - action: rest_command.cloudflare_get_dns_record
+    data:
+      auth: "{{ auth }}"
+      zone_id: "{{ zone_id }}"
+      record_name: "{{ record_name }}"
+    response_variable: lookup
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: >-
+              {{ lookup.status != 200 or not lookup.content.success
+                 or lookup.content.result | count == 0 }}
+        sequence:
+          - action: "notify.{{ notify_action }}"
+            data: >-
+              {{ notify_data | combine({'message':
+                 ':warning: **Cloudflare DDNS failed** - could not read the A record for `'
+                 ~ record_name ~ '` (HTTP ' ~ lookup.status ~ '). '
+                 ~ (lookup.content.errors | default('Does the A record exist?'))}) }}
+          - stop: DNS record lookup failed
+
+  - variables:
+      record: "{{ lookup.content.result[0] }}"
+
+  - condition: template
+    value_template: "{{ record.content != new_ip }}"
+
+  - action: rest_command.cloudflare_patch_dns_record
+    data:
+      auth: "{{ auth }}"
+      zone_id: "{{ zone_id }}"
+      record_id: "{{ record.id }}"
+      record_name: "{{ record_name }}"
+      ip: "{{ new_ip }}"
+    response_variable: patch
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ patch.status == 200 and patch.content.success }}"
+        sequence:
+          - action: "notify.{{ notify_action }}"
+            data: >-
+              {{ notify_data | combine({'message':
+                 ':white_check_mark: **Cloudflare DDNS updated** - `' ~ record_name ~ '`: '
+                 ~ record.content ~ ' -> **' ~ new_ip ~ '**'}) }}
+    default:
+      - action: "notify.{{ notify_action }}"
+        data: >-
+          {{ notify_data | combine({'message':
+             ':warning: **Cloudflare DDNS failed** - PATCH of `' ~ record_name ~ '` to '
+             ~ new_ip ~ ' returned HTTP ' ~ patch.status ~ '. '
+             ~ (patch.content.errors | default(''))}) }}
