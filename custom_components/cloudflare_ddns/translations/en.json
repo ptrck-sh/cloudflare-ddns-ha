@@ -1,0 +1,117 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Cloudflare API token",
+        "description": "Create a token at My Profile → API Tokens with permission Zone → DNS → Edit on the zone you want to keep updated.",
+        "data": {
+          "api_token": "API token"
+        },
+        "data_description": {
+          "api_token": "Pasting the whole 'Bearer ...' header works too."
+        }
+      },
+      "zone": {
+        "title": "Choose the zone",
+        "description": "Which domain holds the record?",
+        "data": {
+          "zone_id": "Zone"
+        }
+      },
+      "record": {
+        "title": "Choose the record",
+        "description": "Which record in {zone} should follow your public IP?",
+        "data": {
+          "record_name": "Record name",
+          "ipv4": "Track IPv4 (A record)",
+          "ipv6": "Track IPv6 (AAAA record)",
+          "proxied": "Proxy through Cloudflare",
+          "ttl": "TTL",
+          "update_interval": "Check every"
+        },
+        "data_description": {
+          "record_name": "A host such as 'home', the full name 'home.example.com', or '@' for the domain itself.",
+          "proxied": "Proxying hides your real address behind Cloudflare, which defeats most reasons to run dynamic DNS. Leave this off unless the name is only used for web traffic.",
+          "ttl": "Seconds, or 1 for automatic. Ignored on proxied records, which Cloudflare always sets to automatic.",
+          "update_interval": "Minutes between checks. Cloudflare is only written to when the address actually changed."
+        }
+      },
+      "create_records": {
+        "title": "Create the record?",
+        "description": "No {types} record exists for {record} yet. Submit to create it now, pointing at your current public IP, with proxying set to: {proxied}.\n\nIf you would rather create it yourself in the Cloudflare dashboard, do that first and then start over."
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate Cloudflare",
+        "description": "The token for {record} no longer works. Enter a replacement with Zone → DNS → Edit permission.",
+        "data": {
+          "api_token": "API token"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach the Cloudflare API.",
+      "invalid_auth": "That token was rejected, or it lacks DNS edit permission on this zone.",
+      "no_zones": "This token cannot see any zones. Check its permissions and zone resources.",
+      "no_record_type": "Enable IPv4, IPv6, or both.",
+      "wrong_zone": "That name is not inside the selected zone.",
+      "no_public_ip": "Could not determine your public address, so there is nothing to point the record at.",
+      "create_failed": "Cloudflare refused to create the record. Check the logs for the reason."
+    },
+    "abort": {
+      "already_configured": "That record is already set up.",
+      "reauth_successful": "Re-authentication was successful."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Cloudflare DDNS options",
+        "data": {
+          "ipv4": "Track IPv4 (A record)",
+          "ipv6": "Track IPv6 (AAAA record)",
+          "proxied": "Proxy through Cloudflare",
+          "ttl": "TTL",
+          "update_interval": "Check every"
+        },
+        "data_description": {
+          "proxied": "Only applied to records this integration creates. Existing records keep their current setting, because updates never touch it.",
+          "ttl": "Seconds, or 1 for automatic. Ignored on proxied records.",
+          "update_interval": "Minutes between checks."
+        }
+      }
+    },
+    "error": {
+      "no_record_type": "Enable IPv4, IPv6, or both."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "public_ip": {
+        "name": "Public {record_type} address"
+      },
+      "record_ip": {
+        "name": "Record {record_type} address"
+      },
+      "last_updated": {
+        "name": "{record_type} last updated"
+      }
+    },
+    "binary_sensor": {
+      "in_sync": {
+        "name": "{record_type} out of sync"
+      }
+    }
+  },
+  "services": {
+    "update_now": {
+      "name": "Update now",
+      "description": "Checks the public IP and updates Cloudflare immediately, without waiting for the next scheduled check.",
+      "fields": {
+        "entry_id": {
+          "name": "Entries",
+          "description": "Which configured records to check. Leave empty for all of them."
+        }
+      }
+    }
+  }
+}

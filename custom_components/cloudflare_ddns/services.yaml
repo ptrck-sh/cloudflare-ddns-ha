@@ -1,0 +1,7 @@
+update_now:
+  fields:
+    entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: cloudflare_ddns
