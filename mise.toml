@@ -1,0 +1,10 @@
+[tools]
+pre-commit = "4.6.0"
+glab = "1.100.0"
+uv = "0.11.14"
+
+[hooks]
+enter = """
+pre-commit install --install-hooks 2>/dev/null || true
+[ -f mise.local.toml ] || cp mise.local.toml.example mise.local.toml
+"""

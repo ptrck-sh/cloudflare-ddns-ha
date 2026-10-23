@@ -1,0 +1,45 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+        args: [--fix=auto]
+      - id: pretty-format-json
+        args: [--autofix, --no-sort-keys, --no-ensure-ascii]
+      - id: check-toml
+      - id: check-xml
+      - id: check-json
+      - id: no-commit-to-branch
+        args: [--branch, main]
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.38.0
+    hooks:
+      - id: yamllint
+  - repo: local
+    hooks:
+      - id: proselint
+        name: proselint
+        entry: proselint
+        language: system
+        types: [markdown]
+      - id: alint-validate-config
+        name: alint validate config
+        entry: alint validate-config
+        language: system
+        pass_filenames: false
+        files: ^\.alint\.yml$|^\.alint/.*\.ya?ml$
+      - id: alint
+        name: alint
+        entry: alint check
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [manual]
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.2
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
