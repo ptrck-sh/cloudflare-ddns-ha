@@ -1,0 +1,15 @@
+mise.local.toml
+.env
+.env.*
+.DS_Store
+.idea/
+.vscode/
+*.swp
+__pycache__/
+*.py[cod]
+.venv/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/

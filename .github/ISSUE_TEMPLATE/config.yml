@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Development and merge requests
+    url: https://gitlab.com/ptrck-sh/cloudflare-ddns-ha
+    about: Code changes go to GitLab; this GitHub repository is a mirror.
