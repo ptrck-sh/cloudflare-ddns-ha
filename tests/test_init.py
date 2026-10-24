@@ -29,6 +29,7 @@ SYNC_AAAA = "binary_sensor.home_example_com_aaaa_out_of_sync"
 PUBLIC_A = "sensor.home_example_com_public_a_address"
 RECORD_A = "sensor.home_example_com_record_a_address"
 UPDATED_A = "sensor.home_example_com_a_last_updated"
+UPDATE_NOW = "button.home_example_com_update_now"
 
 
 async def _setup(hass: HomeAssistant, entry) -> None:
@@ -89,6 +90,22 @@ async def test_update_now_service(
 
     assert len(cloudflare.requests("PATCH")) == 1
     assert events[0].data["old_ip"] == OLD_V4
+    assert cloudflare.records["A"]["content"] == PUBLIC_V4
+
+
+async def test_update_now_button(hass: HomeAssistant, cloudflare, config_entry) -> None:
+    cloudflare.add_record("A", PUBLIC_V4)
+    await _setup(hass, config_entry)
+
+    assert hass.states.get(UPDATE_NOW) is not None
+
+    cloudflare.records["A"]["content"] = OLD_V4
+    await hass.services.async_call(
+        "button", "press", {"entity_id": UPDATE_NOW}, blocking=True
+    )
+    await hass.async_block_till_done(wait_background_tasks=True)
+
+    assert len(cloudflare.requests("PATCH")) == 1
     assert cloudflare.records["A"]["content"] == PUBLIC_V4
 
 
@@ -161,6 +178,7 @@ async def test_out_of_sync_when_patch_fails_later(
     await hass.async_block_till_done(wait_background_tasks=True)
 
     assert hass.states.get(SYNC_A).state == STATE_UNAVAILABLE
+    assert hass.states.get(UPDATE_NOW).state != STATE_UNAVAILABLE
 
     cloudflare.fail_patch = False
     async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=12))

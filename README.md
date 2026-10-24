@@ -77,6 +77,7 @@ Per tracked record, per address family:
 | `sensor.<record>_record_a_address` | What Cloudflare currently has |
 | `sensor.<record>_a_last_updated` | When it was last changed |
 | `binary_sensor.<record>_a_out_of_sync` | Problem class: on when they differ |
+| `button.<record>_update_now` | Checks immediately, same as the `update_now` action |
 
 `AAAA` equivalents appear when IPv6 is enabled.
 
