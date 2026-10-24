@@ -1,0 +1,66 @@
+blueprint:
+  name: Cloudflare DDNS - notify on changes
+  description: >-
+    Runs your own actions when the Cloudflare DDNS integration updates or
+    creates a record, and when Cloudflare refuses an update. Use any action:
+    a Discord or mobile notify, a persistent notification, a script.
+
+
+    Inside the actions these variables are available: `record_name`,
+    `record_type`, `old_ip`, `new_ip`, `created`, `proxied`, `error`.
+  domain: automation
+  source_url: https://github.com/ptrck-sh/cloudflare-ddns-ha/blob/main/blueprints/automation/cloudflare_ddns_notify.yaml
+  input:
+    entry:
+      name: Record
+      description: Limit to one configured record. Leave empty for all.
+      default: ""
+      selector:
+        config_entry:
+          integration: cloudflare_ddns
+    on_updated:
+      name: When a record was updated or created
+      default: []
+      selector:
+        action: {}
+    on_failed:
+      name: When Cloudflare refused an update
+      default: []
+      selector:
+        action: {}
+
+mode: queued
+max: 10
+
+variables:
+  entry: !input entry
+  record_name: "{{ trigger.event.data.record_name }}"
+  record_type: "{{ trigger.event.data.record_type }}"
+  old_ip: "{{ trigger.event.data.old_ip if trigger.id == 'updated' else trigger.event.data.current_ip }}"
+  new_ip: "{{ trigger.event.data.new_ip if trigger.id == 'updated' else trigger.event.data.attempted_ip }}"
+  created: "{{ trigger.event.data.created | default(false) }}"
+  proxied: "{{ trigger.event.data.proxied | default(none) }}"
+  error: "{{ trigger.event.data.error | default('') }}"
+
+triggers:
+  - trigger: event
+    event_type: cloudflare_ddns_record_updated
+    id: updated
+  - trigger: event
+    event_type: cloudflare_ddns_record_failed
+    id: failed
+
+conditions:
+  - condition: template
+    value_template: "{{ not entry or trigger.event.data.entry_id == entry }}"
+
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: updated
+        sequence: !input on_updated
+      - conditions:
+          - condition: trigger
+            id: failed
+        sequence: !input on_failed

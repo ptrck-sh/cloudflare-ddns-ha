@@ -9,6 +9,22 @@ from .const import CONF_ZONE_NAME, DOMAIN
 from .coordinator import CloudflareDdnsCoordinator, FamilyState
 
 
+def device_info(coordinator: CloudflareDdnsCoordinator) -> DeviceInfo:
+    """Return the device shared by entities for one tracked record."""
+    entry = coordinator.config_entry
+    return DeviceInfo(
+        entry_type=DeviceEntryType.SERVICE,
+        identifiers={(DOMAIN, entry.entry_id)},
+        manufacturer="Cloudflare",
+        model="DNS record",
+        name=coordinator.record_name,
+        configuration_url=(
+            "https://dash.cloudflare.com/?to=/:account/"
+            f"{entry.data.get(CONF_ZONE_NAME, '')}/dns/records"
+        ),
+    )
+
+
 class CloudflareDdnsEntity(CoordinatorEntity[CloudflareDdnsCoordinator]):
     """Base entity: one device per tracked record."""
 
@@ -22,17 +38,7 @@ class CloudflareDdnsEntity(CoordinatorEntity[CloudflareDdnsCoordinator]):
         self._record_type = record_type
         entry = coordinator.config_entry
         self._attr_unique_id = f"{entry.entry_id}_{record_type}_{key}"
-        self._attr_device_info = DeviceInfo(
-            entry_type=DeviceEntryType.SERVICE,
-            identifiers={(DOMAIN, entry.entry_id)},
-            manufacturer="Cloudflare",
-            model="DNS record",
-            name=coordinator.record_name,
-            configuration_url=(
-                "https://dash.cloudflare.com/?to=/:account/"
-                f"{entry.data.get(CONF_ZONE_NAME, '')}/dns/records"
-            ),
-        )
+        self._attr_device_info = device_info(coordinator)
 
     @property
     def _family(self) -> FamilyState | None:
