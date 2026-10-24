@@ -1,0 +1,33 @@
+[project]
+name = "cloudflare-ddns-ha"
+version = "0.1.0"
+description = "Home Assistant custom integration that keeps Cloudflare DNS records pointed at your current public IP"
+license = "MIT"
+requires-python = ">=3.14.2"
+
+[dependency-groups]
+dev = [
+  "pytest-homeassistant-custom-component==0.13.373",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "D", "ASYNC", "RUF"]
+ignore = ["D203", "D213"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"

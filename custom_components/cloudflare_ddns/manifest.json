@@ -1,0 +1,14 @@
+{
+  "domain": "cloudflare_ddns",
+  "name": "Cloudflare DDNS",
+  "codeowners": [
+    "@pulsar501"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/ptrck-sh/cloudflare-ddns-ha",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/ptrck-sh/cloudflare-ddns-ha/issues",
+  "requirements": [],
+  "version": "0.1.0-rc.3"
+}
