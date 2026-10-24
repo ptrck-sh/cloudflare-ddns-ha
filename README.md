@@ -87,6 +87,18 @@ The integration does not send messages itself — it fires an event and you
 automate on it. That way you use whatever you already have: Discord, mobile
 push, persistent notification.
 
+The quickest way is the notification blueprint. Import it, then pick any
+actions for "updated" and "failed" — a Discord message, a phone push, a
+script:
+
+[![Import blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fptrck-sh%2Fcloudflare-ddns-ha%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fcloudflare_ddns_notify.yaml)
+
+Inside those actions, `record_name`, `record_type`, `old_ip`, `new_ip`,
+`created`, `proxied` and `error` are available as variables, for example
+`{{ record_name }}: {{ old_ip }} -> {{ new_ip }}`.
+
+Or write the automation yourself:
+
 ```yaml
 automation:
   - alias: "Cloudflare DDNS changed"
