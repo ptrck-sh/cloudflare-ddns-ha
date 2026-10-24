@@ -38,8 +38,8 @@ commit and again in CI.
 
 ## Behaviour to preserve
 
-1. Updates PATCH only `type`, `name` and `content`, so a record keeps its TTL
-   and proxy setting.
+1. Updates PATCH only `type`, `name` and fields that differ among `content`
+   and `comment`, plus `proxied` only when proxy sync is on; TTL is never sent.
 2. TTL is omitted when creating a proxied record; Cloudflare rejects it.
 3. Non-global IP answers are rejected, never published.
 4. One address family failing does not take the other's entities down.
