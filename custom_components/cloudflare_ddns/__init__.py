@@ -10,7 +10,7 @@ from homeassistant.helpers import config_validation as cv
 from .const import DOMAIN, SERVICE_UPDATE_NOW
 from .coordinator import CloudflareDdnsConfigEntry, CloudflareDdnsCoordinator
 
-PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SENSOR]
 
 ATTR_ENTRY_ID = "entry_id"
 
