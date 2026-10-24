@@ -40,6 +40,7 @@ from .const import (
     CONF_IPV6,
     CONF_PROXIED,
     CONF_RECORD_NAME,
+    CONF_SYNC_PROXIED,
     CONF_TTL,
     CONF_UPDATE_INTERVAL,
     CONF_ZONE_ID,
@@ -47,6 +48,7 @@ from .const import (
     DEFAULT_IPV4,
     DEFAULT_IPV6,
     DEFAULT_PROXIED,
+    DEFAULT_SYNC_PROXIED,
     DEFAULT_TTL,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
@@ -57,6 +59,7 @@ from .const import (
     RECORD_TYPE_IPV4,
     RECORD_TYPE_IPV6,
 )
+from .coordinator import managed_comment
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -150,6 +153,7 @@ class CloudflareDdnsConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_IPV4: user_input[CONF_IPV4],
                 CONF_IPV6: user_input[CONF_IPV6],
                 CONF_PROXIED: user_input[CONF_PROXIED],
+                CONF_SYNC_PROXIED: user_input[CONF_SYNC_PROXIED],
                 CONF_TTL: int(user_input[CONF_TTL]),
                 CONF_UPDATE_INTERVAL: int(user_input[CONF_UPDATE_INTERVAL]),
             }
@@ -188,6 +192,9 @@ class CloudflareDdnsConfigFlow(ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_IPV6, default=DEFAULT_IPV6): BooleanSelector(),
                     vol.Required(
                         CONF_PROXIED, default=DEFAULT_PROXIED
+                    ): BooleanSelector(),
+                    vol.Required(
+                        CONF_SYNC_PROXIED, default=DEFAULT_SYNC_PROXIED
                     ): BooleanSelector(),
                     vol.Required(CONF_TTL, default=DEFAULT_TTL): NumberSelector(
                         NumberSelectorConfig(
@@ -232,6 +239,7 @@ class CloudflareDdnsConfigFlow(ConfigFlow, domain=DOMAIN):
                         ip,
                         ttl=self._options[CONF_TTL],
                         proxied=self._options[CONF_PROXIED],
+                        comment=managed_comment(self.hass),
                     )
                     self._missing.remove(record_type)
             except PublicIpError:
@@ -350,6 +358,7 @@ class CloudflareDdnsOptionsFlow(OptionsFlow):
                         CONF_IPV4: user_input[CONF_IPV4],
                         CONF_IPV6: user_input[CONF_IPV6],
                         CONF_PROXIED: user_input[CONF_PROXIED],
+                        CONF_SYNC_PROXIED: user_input[CONF_SYNC_PROXIED],
                         CONF_TTL: int(user_input[CONF_TTL]),
                         CONF_UPDATE_INTERVAL: int(user_input[CONF_UPDATE_INTERVAL]),
                     }
@@ -368,6 +377,10 @@ class CloudflareDdnsOptionsFlow(OptionsFlow):
                     vol.Required(
                         CONF_PROXIED,
                         default=options.get(CONF_PROXIED, DEFAULT_PROXIED),
+                    ): BooleanSelector(),
+                    vol.Required(
+                        CONF_SYNC_PROXIED,
+                        default=options.get(CONF_SYNC_PROXIED, DEFAULT_SYNC_PROXIED),
                     ): BooleanSelector(),
                     vol.Required(
                         CONF_TTL, default=options.get(CONF_TTL, DEFAULT_TTL)

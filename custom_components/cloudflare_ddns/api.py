@@ -48,6 +48,7 @@ class DnsRecord:
     content: str
     ttl: int
     proxied: bool
+    comment: str | None = None
 
     @classmethod
     def from_api(cls, data: dict[str, Any]) -> DnsRecord:
@@ -59,6 +60,7 @@ class DnsRecord:
             content=data["content"],
             ttl=data.get("ttl", 1),
             proxied=data.get("proxied", False),
+            comment=data.get("comment"),
         )
 
 
@@ -189,6 +191,7 @@ class CloudflareClient:
         *,
         ttl: int = 1,
         proxied: bool = False,
+        comment: str,
     ) -> DnsRecord:
         """Create a record.
 
@@ -200,6 +203,7 @@ class CloudflareClient:
             "name": name,
             "content": content,
             "proxied": proxied,
+            "comment": comment,
         }
         if not proxied:
             payload["ttl"] = ttl
@@ -209,20 +213,31 @@ class CloudflareClient:
         )
         return DnsRecord.from_api(result)
 
-    async def async_update_record_content(
-        self, zone_id: str, record: DnsRecord, content: str
+    async def async_update_record(
+        self,
+        zone_id: str,
+        record: DnsRecord,
+        *,
+        content: str | None = None,
+        comment: str | None = None,
+        proxied: bool | None = None,
     ) -> DnsRecord:
-        """Point an existing record at a new address.
+        """Update only the supplied fields of an existing record.
 
-        Only type, name and content are sent. A Cloudflare PATCH leaves
-        unsent fields alone, so the record keeps whatever ttl and proxied
-        setting it already had - this can never flip a proxied record to
-        DNS-only by accident.
+        A Cloudflare PATCH leaves unsent fields alone, so the record keeps its
+        existing TTL and, unless explicitly requested, proxy setting.
         """
+        payload: dict[str, Any] = {"type": record.type, "name": record.name}
+        if content is not None:
+            payload["content"] = content
+        if comment is not None:
+            payload["comment"] = comment
+        if proxied is not None:
+            payload["proxied"] = proxied
         result = await self._request(
             "PATCH",
             f"/zones/{zone_id}/dns_records/{record.id}",
-            json={"type": record.type, "name": record.name, "content": content},
+            json=payload,
         )
         return DnsRecord.from_api(result)
 

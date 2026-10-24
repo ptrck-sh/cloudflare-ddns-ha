@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+import pytest
 from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntryState
 from homeassistant.const import STATE_OFF, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
@@ -13,6 +14,7 @@ from pytest_homeassistant_custom_component.common import (
 
 from custom_components.cloudflare_ddns.const import (
     CONF_IPV6,
+    CONF_SYNC_PROXIED,
     DOMAIN,
     EVENT_RECORD_FAILED,
     EVENT_RECORD_UPDATED,
@@ -32,6 +34,11 @@ UPDATED_A = "sensor.home_example_com_a_last_updated"
 UPDATE_NOW = "button.home_example_com_update_now"
 
 
+def _managed_comment(hass: HomeAssistant) -> str:
+    """Return the expected Cloudflare comment for this Home Assistant instance."""
+    return f"managed by cloudflare-ddns on {hass.config.location_name}"[:100]
+
+
 async def _setup(hass: HomeAssistant, entry) -> None:
     if hass.config_entries.async_get_entry(entry.entry_id) is None:
         entry.add_to_hass(hass)
@@ -40,7 +47,7 @@ async def _setup(hass: HomeAssistant, entry) -> None:
 
 
 async def test_setup_in_sync(hass: HomeAssistant, cloudflare, config_entry) -> None:
-    cloudflare.add_record("A", PUBLIC_V4)
+    cloudflare.add_record("A", PUBLIC_V4, comment=_managed_comment(hass))
 
     await _setup(hass, config_entry)
 
@@ -61,7 +68,12 @@ async def test_changed_ip_is_patched_and_announced(
     await _setup(hass, config_entry)
 
     _, _, payload = cloudflare.requests("PATCH")[0]
-    assert payload == {"type": "A", "name": RECORD_NAME, "content": PUBLIC_V4}
+    assert payload == {
+        "type": "A",
+        "name": RECORD_NAME,
+        "content": PUBLIC_V4,
+        "comment": _managed_comment(hass),
+    }
     assert cloudflare.records["A"]["proxied"] is True
     assert cloudflare.records["A"]["ttl"] == 300
     assert events[0].data == {
@@ -80,7 +92,7 @@ async def test_changed_ip_is_patched_and_announced(
 async def test_update_now_service(
     hass: HomeAssistant, cloudflare, config_entry
 ) -> None:
-    cloudflare.add_record("A", PUBLIC_V4)
+    cloudflare.add_record("A", PUBLIC_V4, comment=_managed_comment(hass))
     await _setup(hass, config_entry)
     events = async_capture_events(hass, EVENT_RECORD_UPDATED)
 
@@ -94,7 +106,7 @@ async def test_update_now_service(
 
 
 async def test_update_now_button(hass: HomeAssistant, cloudflare, config_entry) -> None:
-    cloudflare.add_record("A", PUBLIC_V4)
+    cloudflare.add_record("A", PUBLIC_V4, comment=_managed_comment(hass))
     await _setup(hass, config_entry)
 
     assert hass.states.get(UPDATE_NOW) is not None
@@ -117,6 +129,7 @@ async def test_deleted_record_is_recreated(
     await _setup(hass, config_entry)
 
     assert cloudflare.records["A"]["content"] == PUBLIC_V4
+    assert cloudflare.records["A"]["comment"] == _managed_comment(hass)
     assert events[0].data["created"] is True
     assert events[0].data["old_ip"] is None
 
@@ -133,6 +146,70 @@ async def test_failed_patch_fires_event(
     assert config_entry.state is ConfigEntryState.SETUP_RETRY
     assert events[0].data["current_ip"] == OLD_V4
     assert events[0].data["attempted_ip"] == PUBLIC_V4
+
+
+@pytest.mark.parametrize("comment", [None, "managed elsewhere"])
+async def test_missing_or_foreign_comment_is_corrected_without_event(
+    hass: HomeAssistant, cloudflare, config_entry, comment: str | None
+) -> None:
+    cloudflare.add_record("A", PUBLIC_V4, comment=comment)
+    events = async_capture_events(hass, EVENT_RECORD_UPDATED)
+
+    await _setup(hass, config_entry)
+
+    _, _, payload = cloudflare.requests("PATCH")[0]
+    assert payload == {
+        "type": "A",
+        "name": RECORD_NAME,
+        "comment": _managed_comment(hass),
+    }
+    assert cloudflare.records["A"]["comment"] == _managed_comment(hass)
+    assert not events
+
+
+async def test_proxy_is_untouched_when_sync_is_off(
+    hass: HomeAssistant, cloudflare, config_entry
+) -> None:
+    cloudflare.add_record("A", PUBLIC_V4, proxied=True)
+
+    await _setup(hass, config_entry)
+
+    _, _, payload = cloudflare.requests("PATCH")[0]
+    assert "proxied" not in payload
+    assert cloudflare.records["A"]["proxied"] is True
+
+
+async def test_proxy_is_corrected_when_sync_is_on(
+    hass: HomeAssistant, cloudflare, config_entry
+) -> None:
+    config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        config_entry, options={**config_entry.options, CONF_SYNC_PROXIED: True}
+    )
+    cloudflare.add_record("A", PUBLIC_V4, proxied=True, comment=_managed_comment(hass))
+    events = async_capture_events(hass, EVENT_RECORD_UPDATED)
+
+    await _setup(hass, config_entry)
+
+    _, _, payload = cloudflare.requests("PATCH")[0]
+    assert payload == {"type": "A", "name": RECORD_NAME, "proxied": False}
+    assert cloudflare.records["A"]["proxied"] is False
+    assert not events
+
+
+async def test_ip_update_without_proxy_sync_omits_proxy_and_ttl(
+    hass: HomeAssistant, cloudflare, config_entry
+) -> None:
+    cloudflare.add_record(
+        "A", OLD_V4, ttl=300, proxied=True, comment=_managed_comment(hass)
+    )
+
+    await _setup(hass, config_entry)
+
+    _, _, payload = cloudflare.requests("PATCH")[0]
+    assert payload == {"type": "A", "name": RECORD_NAME, "content": PUBLIC_V4}
+    assert "proxied" not in payload
+    assert "ttl" not in payload
 
 
 async def test_broken_ipv6_keeps_ipv4_up(
