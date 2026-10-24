@@ -60,10 +60,11 @@ API landed.
 Versions follow [SemVer](https://semver.org/), tags carry no `v` prefix.
 
 1. Set `version` in `custom_components/cloudflare_ddns/manifest.json` to the
-   new version, in a merge request.
-2. After merge, tag the merge commit on GitLab, for example `0.2.0`, or
-   `0.2.0-rc.1` for a release candidate.
-3. The tag mirrors to GitHub, where the release workflow checks the tag
-   matches the manifest and publishes a GitHub release. Release candidates
-   become pre-releases, which HACS offers only to users who enable beta
-   versions.
+   new version. Release candidates can be tagged on the merge request branch;
+   final versions are tagged on `main` after merge.
+2. Tag the commit on GitLab, for example `0.2.0`, or `0.2.0-rc.1` for a
+   release candidate.
+3. The tag mirrors to GitHub. Two minutes later the GitLab `github-release`
+   job checks the tag matches the manifest and creates the GitHub release.
+   Release candidates become pre-releases, which HACS offers only to users who
+   enable beta versions.
