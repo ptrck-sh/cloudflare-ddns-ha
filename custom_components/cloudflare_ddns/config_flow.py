@@ -38,6 +38,7 @@ from .const import (
     CONF_API_TOKEN,
     CONF_IPV4,
     CONF_IPV6,
+    CONF_NOTIFY,
     CONF_PROXIED,
     CONF_RECORD_NAME,
     CONF_SYNC_PROXIED,
@@ -47,6 +48,7 @@ from .const import (
     CONF_ZONE_NAME,
     DEFAULT_IPV4,
     DEFAULT_IPV6,
+    DEFAULT_NOTIFY,
     DEFAULT_PROXIED,
     DEFAULT_SYNC_PROXIED,
     DEFAULT_TTL,
@@ -56,6 +58,9 @@ from .const import (
     IPV6_PROVIDERS,
     MAX_UPDATE_INTERVAL,
     MIN_UPDATE_INTERVAL,
+    NOTIFY_ALL,
+    NOTIFY_OFF,
+    NOTIFY_SUCCESS,
     RECORD_TYPE_IPV4,
     RECORD_TYPE_IPV6,
 )
@@ -361,6 +366,7 @@ class CloudflareDdnsOptionsFlow(OptionsFlow):
                         CONF_SYNC_PROXIED: user_input[CONF_SYNC_PROXIED],
                         CONF_TTL: int(user_input[CONF_TTL]),
                         CONF_UPDATE_INTERVAL: int(user_input[CONF_UPDATE_INTERVAL]),
+                        CONF_NOTIFY: user_input[CONF_NOTIFY],
                     }
                 )
 
@@ -400,6 +406,16 @@ class CloudflareDdnsOptionsFlow(OptionsFlow):
                             max=MAX_UPDATE_INTERVAL,
                             mode=NumberSelectorMode.BOX,
                             unit_of_measurement="min",
+                        )
+                    ),
+                    vol.Required(
+                        CONF_NOTIFY,
+                        default=options.get(CONF_NOTIFY, DEFAULT_NOTIFY),
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=[NOTIFY_OFF, NOTIFY_SUCCESS, NOTIFY_ALL],
+                            mode=SelectSelectorMode.DROPDOWN,
+                            translation_key=CONF_NOTIFY,
                         )
                     ),
                 }

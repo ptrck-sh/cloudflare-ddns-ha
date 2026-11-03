@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from unittest.mock import patch
 
 import pytest
 from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntryState
@@ -14,6 +15,7 @@ from pytest_homeassistant_custom_component.common import (
 
 from custom_components.cloudflare_ddns.const import (
     CONF_IPV6,
+    CONF_NOTIFY,
     CONF_SYNC_PROXIED,
     DOMAIN,
     EVENT_RECORD_FAILED,
@@ -323,3 +325,70 @@ async def test_diagnostics_redact_ip_in_error(
         "returned '**REDACTED**', not a usable address"
         in diagnostics["families"]["AAAA"]["error"]
     )
+
+
+@pytest.fixture
+def notifications():
+    with patch(
+        "custom_components.cloudflare_ddns.coordinator.persistent_notification"
+    ) as mock:
+        yield mock
+
+
+@pytest.mark.parametrize(
+    ("level", "notified"),
+    [(None, True), ("all", True), ("success", True), ("off", False)],
+)
+async def test_ip_change_notifies(
+    hass: HomeAssistant, cloudflare, config_entry, notifications, level, notified
+) -> None:
+    if level:
+        config_entry.add_to_hass(hass)
+        hass.config_entries.async_update_entry(
+            config_entry, options={**config_entry.options, CONF_NOTIFY: level}
+        )
+    cloudflare.add_record("A", OLD_V4)
+
+    await _setup(hass, config_entry)
+
+    assert notifications.async_create.called is notified
+    if notified:
+        _, message = notifications.async_create.call_args.args
+        assert message == f"{RECORD_NAME} (A): {OLD_V4} → {PUBLIC_V4}"
+
+
+async def test_created_record_notifies(
+    hass: HomeAssistant, cloudflare, config_entry, notifications
+) -> None:
+    await _setup(hass, config_entry)
+
+    _, message = notifications.async_create.call_args.args
+    assert message == f"{RECORD_NAME} (A): created with {PUBLIC_V4}"
+
+
+@pytest.mark.parametrize(("level", "notified"), [(None, True), ("success", False)])
+async def test_failure_notifies_once_and_clears(
+    hass: HomeAssistant, cloudflare, config_entry, notifications, level, notified
+) -> None:
+    if level:
+        config_entry.add_to_hass(hass)
+        hass.config_entries.async_update_entry(
+            config_entry, options={**config_entry.options, CONF_NOTIFY: level}
+        )
+    cloudflare.add_record("A", PUBLIC_V4)
+    await _setup(hass, config_entry)
+
+    cloudflare.records["A"]["content"] = OLD_V4
+    cloudflare.fail_patch = True
+    for minutes in (6, 12):
+        async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=minutes))
+        await hass.async_block_till_done(wait_background_tasks=True)
+
+    titles = [c.kwargs["title"] for c in notifications.async_create.call_args_list]
+    assert titles.count("Cloudflare DDNS failed") == (1 if notified else 0)
+
+    cloudflare.fail_patch = False
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=18))
+    await hass.async_block_till_done(wait_background_tasks=True)
+
+    notifications.async_dismiss.assert_called_once()

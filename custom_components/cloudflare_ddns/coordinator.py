@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
+from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
@@ -25,6 +26,7 @@ from .const import (
     CONF_API_TOKEN,
     CONF_IPV4,
     CONF_IPV6,
+    CONF_NOTIFY,
     CONF_PROXIED,
     CONF_RECORD_NAME,
     CONF_SYNC_PROXIED,
@@ -33,6 +35,7 @@ from .const import (
     CONF_ZONE_ID,
     DEFAULT_IPV4,
     DEFAULT_IPV6,
+    DEFAULT_NOTIFY,
     DEFAULT_PROXIED,
     DEFAULT_SYNC_PROXIED,
     DEFAULT_TTL,
@@ -42,6 +45,8 @@ from .const import (
     EVENT_RECORD_UPDATED,
     IPV4_PROVIDERS,
     IPV6_PROVIDERS,
+    NOTIFY_ALL,
+    NOTIFY_OFF,
     RECORD_TYPE_IPV4,
     RECORD_TYPE_IPV6,
 )
@@ -105,6 +110,7 @@ class CloudflareDdnsCoordinator(DataUpdateCoordinator[CloudflareDdnsData]):
         self.client = CloudflareClient(self._session, config_entry.data[CONF_API_TOKEN])
         self.zone_id: str = config_entry.data[CONF_ZONE_ID]
         self.record_name: str = config_entry.data[CONF_RECORD_NAME]
+        self._errors: dict[str, str] = {}
 
         interval = config_entry.options.get(
             CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL
@@ -129,6 +135,36 @@ class CloudflareDdnsCoordinator(DataUpdateCoordinator[CloudflareDdnsData]):
     @property
     def _sync_proxied(self) -> bool:
         return self.config_entry.options.get(CONF_SYNC_PROXIED, DEFAULT_SYNC_PROXIED)
+
+    @property
+    def _notify(self) -> str:
+        return self.config_entry.options.get(CONF_NOTIFY, DEFAULT_NOTIFY)
+
+    def _notification_id(self, state: FamilyState, kind: str) -> str:
+        return f"{DOMAIN}_{self.config_entry.entry_id}_{state.record_type}_{kind}"
+
+    def _notify_updated(
+        self, state: FamilyState, old_ip: str | None, new_ip: str
+    ) -> None:
+        if self._notify == NOTIFY_OFF:
+            return
+        change = f"{old_ip} → {new_ip}" if old_ip else f"created with {new_ip}"
+        persistent_notification.async_create(
+            self.hass,
+            f"{self.record_name} ({state.record_type}): {change}",
+            title="Cloudflare DDNS updated",
+            notification_id=self._notification_id(state, "updated"),
+        )
+
+    def _notify_failed(self, state: FamilyState) -> None:
+        if self._notify != NOTIFY_ALL:
+            return
+        persistent_notification.async_create(
+            self.hass,
+            f"{self.record_name} ({state.record_type}): {state.error}",
+            title="Cloudflare DDNS failed",
+            notification_id=self._notification_id(state, "failed"),
+        )
 
     @property
     def _comment(self) -> str:
@@ -166,6 +202,14 @@ class CloudflareDdnsCoordinator(DataUpdateCoordinator[CloudflareDdnsData]):
             except (CloudflareError, PublicIpError) as err:
                 state.error = str(err)
                 _LOGGER.warning("%s (%s): %s", self.record_name, record_type, err)
+                if self._errors.get(record_type) != state.error:
+                    self._notify_failed(state)
+                self._errors[record_type] = state.error
+            else:
+                if self._errors.pop(record_type, None):
+                    persistent_notification.async_dismiss(
+                        self.hass, self._notification_id(state, "failed")
+                    )
 
         active = [s for s in data.families.values() if s.enabled]
         if active and all(s.error for s in active):
@@ -279,3 +323,4 @@ class CloudflareDdnsCoordinator(DataUpdateCoordinator[CloudflareDdnsData]):
                 "proxied": state.record.proxied if state.record else None,
             },
         )
+        self._notify_updated(state, old_ip, new_ip)

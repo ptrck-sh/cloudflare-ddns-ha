@@ -74,13 +74,15 @@
           "proxied": "Proxy through Cloudflare",
           "sync_proxied": "Keep proxy setting in sync",
           "ttl": "TTL",
-          "update_interval": "Check every"
+          "update_interval": "Check every",
+          "notify": "Notifications"
         },
         "data_description": {
           "proxied": "This setting applies to records this integration creates, and to existing records only when Keep proxy setting in sync is on.",
           "sync_proxied": "When enabled, correct existing records to match the proxy setting above.",
           "ttl": "Seconds, or 1 for automatic. Ignored on proxied records.",
-          "update_interval": "Minutes between checks."
+          "update_interval": "Minutes between checks.",
+          "notify": "Show a Home Assistant notification when the record changes, and with All also when a check fails."
         }
       }
     },
@@ -120,6 +122,15 @@
           "name": "Entries",
           "description": "Which configured records to check. Leave empty for all of them."
         }
+      }
+    }
+  },
+  "selector": {
+    "notify": {
+      "options": {
+        "off": "Off",
+        "success": "IP changes",
+        "all": "All"
       }
     }
   }

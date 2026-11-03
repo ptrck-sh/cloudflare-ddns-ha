@@ -8,6 +8,7 @@ from custom_components.cloudflare_ddns.const import (
     CONF_API_TOKEN,
     CONF_IPV4,
     CONF_IPV6,
+    CONF_NOTIFY,
     CONF_PROXIED,
     CONF_RECORD_NAME,
     CONF_SYNC_PROXIED,
@@ -248,6 +249,7 @@ async def test_options_flow(hass: HomeAssistant, cloudflare, config_entry) -> No
             CONF_SYNC_PROXIED: True,
             CONF_TTL: 1,
             CONF_UPDATE_INTERVAL: 10,
+            CONF_NOTIFY: "success",
         },
     )
     await hass.async_block_till_done()
@@ -256,3 +258,4 @@ async def test_options_flow(hass: HomeAssistant, cloudflare, config_entry) -> No
     assert config_entry.options[CONF_UPDATE_INTERVAL] == 10
     assert config_entry.options[CONF_PROXIED] is True
     assert config_entry.options[CONF_SYNC_PROXIED] is True
+    assert config_entry.options[CONF_NOTIFY] == "success"

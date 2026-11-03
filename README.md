@@ -9,8 +9,8 @@ Works on every install type — HA OS, Supervised, Container and Core.
 
 Every few minutes it looks up your public address, compares it with what
 Cloudflare has, and updates the record only if they differ. It exposes the
-result as entities and fires an event when something changes, so you decide
-how you want to be told.
+result as entities, shows a Home Assistant notification when something
+changes and fires an event, so you can also be told any other way.
 
 - **IPv4 and IPv6** — tracks the `A` record, the `AAAA` record, or both.
 - **Creates the record for you** if it does not exist yet, rather than failing
@@ -86,11 +86,21 @@ Per tracked record, per address family:
 
 ## Notifications
 
-The integration does not send messages itself — it fires an event and you
-automate on it. That way you use whatever you already have: Discord, mobile
-push, persistent notification.
+The integration shows Home Assistant notifications, set per record under
+**Configure → Notifications**:
 
-The quickest way is the notification blueprint. Import it, then pick any
+| Level | Notifies on |
+|---|---|
+| **All** (default) | Every IP change or created record, and failed checks |
+| **IP changes** | Every IP change or created record |
+| **Off** | Nothing |
+
+Each record keeps one notification per kind and address family, so a newer
+change replaces the older one. A failed check notifies once per distinct
+error, and that notification goes away after the next successful check.
+
+For anything else — Discord, mobile push — the integration fires an event
+and you automate on it. The quickest way is the notification blueprint. Import it, then pick any
 actions for "updated" and "failed" — a Discord message, a phone push, a
 script:
 

@@ -18,6 +18,7 @@ CONF_PROXIED: Final = "proxied"
 CONF_SYNC_PROXIED: Final = "sync_proxied"
 CONF_TTL: Final = "ttl"
 CONF_UPDATE_INTERVAL: Final = "update_interval"
+CONF_NOTIFY: Final = "notify"
 
 DEFAULT_IPV4: Final = True
 DEFAULT_IPV6: Final = False
@@ -25,6 +26,11 @@ DEFAULT_PROXIED: Final = False
 DEFAULT_SYNC_PROXIED: Final = False
 DEFAULT_TTL: Final = 1
 DEFAULT_UPDATE_INTERVAL: Final = 5
+
+NOTIFY_OFF: Final = "off"
+NOTIFY_SUCCESS: Final = "success"
+NOTIFY_ALL: Final = "all"
+DEFAULT_NOTIFY: Final = NOTIFY_ALL
 
 MIN_UPDATE_INTERVAL: Final = 1
 MAX_UPDATE_INTERVAL: Final = 1440
