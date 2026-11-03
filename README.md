@@ -91,13 +91,14 @@ The integration shows Home Assistant notifications, set per record under
 
 | Level | Notifies on |
 |---|---|
-| **All** (default) | Every IP change or created record, and failed checks |
+| **All** (default) | Every IP change or created record, and two failed checks in a row |
 | **IP changes** | Every IP change or created record |
 | **Off** | Nothing |
 
 Each record keeps one notification per kind and address family, so a newer
-change replaces the older one. A failed check notifies once per distinct
-error, and that notification goes away after the next successful check.
+change replaces the older one. A single failed check, such as during
+a short internet outage, stays quiet. Two failures in a row notify once, and
+that notification goes away after the next successful check.
 
 To get the same notifications as a push on your phone, pick the companion
 app's notify action, for example `notify.mobile_app_<phone>`, under

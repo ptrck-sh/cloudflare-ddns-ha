@@ -45,6 +45,7 @@ from .const import (
     DOMAIN,
     EVENT_RECORD_FAILED,
     EVENT_RECORD_UPDATED,
+    FAILURES_BEFORE_NOTIFY,
     IPV4_PROVIDERS,
     IPV6_PROVIDERS,
     NOTIFY_ALL,
@@ -112,7 +113,7 @@ class CloudflareDdnsCoordinator(DataUpdateCoordinator[CloudflareDdnsData]):
         self.client = CloudflareClient(self._session, config_entry.data[CONF_API_TOKEN])
         self.zone_id: str = config_entry.data[CONF_ZONE_ID]
         self.record_name: str = config_entry.data[CONF_RECORD_NAME]
-        self._errors: dict[str, str] = {}
+        self._failures: dict[str, int] = {}
 
         interval = config_entry.options.get(
             CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL
@@ -223,11 +224,11 @@ class CloudflareDdnsCoordinator(DataUpdateCoordinator[CloudflareDdnsData]):
             except (CloudflareError, PublicIpError) as err:
                 state.error = str(err)
                 _LOGGER.warning("%s (%s): %s", self.record_name, record_type, err)
-                if self._errors.get(record_type) != state.error:
+                self._failures[record_type] = self._failures.get(record_type, 0) + 1
+                if self._failures[record_type] == FAILURES_BEFORE_NOTIFY:
                     self._notify_failed(state)
-                self._errors[record_type] = state.error
             else:
-                if self._errors.pop(record_type, None):
+                if self._failures.pop(record_type, 0) >= FAILURES_BEFORE_NOTIFY:
                     persistent_notification.async_dismiss(
                         self.hass, self._notification_id(state, "failed")
                     )

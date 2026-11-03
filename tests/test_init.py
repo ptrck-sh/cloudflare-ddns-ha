@@ -382,7 +382,7 @@ async def test_failure_notifies_once_and_clears(
 
     cloudflare.records["A"]["content"] = OLD_V4
     cloudflare.fail_patch = True
-    for minutes in (6, 12):
+    for minutes in (6, 12, 18):
         async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=minutes))
         await hass.async_block_till_done(wait_background_tasks=True)
 
@@ -390,7 +390,7 @@ async def test_failure_notifies_once_and_clears(
     assert titles.count("Cloudflare DDNS failed") == (1 if notified else 0)
 
     cloudflare.fail_patch = False
-    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=18))
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=24))
     await hass.async_block_till_done(wait_background_tasks=True)
 
     notifications.async_dismiss.assert_called_once()
@@ -420,3 +420,22 @@ async def test_ip_change_is_pushed_to_notify_targets(
         }
     ]
     assert "Could not notify notify.missing" in caplog.text
+
+
+async def test_single_failure_stays_quiet(
+    hass: HomeAssistant, cloudflare, config_entry, notifications
+) -> None:
+    cloudflare.add_record("A", PUBLIC_V4)
+    await _setup(hass, config_entry)
+
+    cloudflare.records["A"]["content"] = OLD_V4
+    cloudflare.fail_patch = True
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=6))
+    await hass.async_block_till_done(wait_background_tasks=True)
+    cloudflare.fail_patch = False
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=12))
+    await hass.async_block_till_done(wait_background_tasks=True)
+
+    titles = [c.kwargs["title"] for c in notifications.async_create.call_args_list]
+    assert "Cloudflare DDNS failed" not in titles
+    notifications.async_dismiss.assert_not_called()
