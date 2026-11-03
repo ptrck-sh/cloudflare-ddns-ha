@@ -15,9 +15,9 @@ how you want to be told.
 - **IPv4 and IPv6** — tracks the `A` record, the `AAAA` record, or both.
 - **Creates the record for you** if it does not exist yet, rather than failing
   until you go and make one by hand.
-- **Never clobbers your settings.** Updates send only the address, so
-  Cloudflare keeps the record's existing TTL and proxy setting. It cannot flip
-  a proxied record to DNS-only by accident.
+- **Never clobbers your settings.** Updates leave TTL alone and, by default,
+  leave the proxy setting alone too. Enable proxy sync only when you want it
+  corrected. Each managed record is labelled with a Cloudflare comment.
 - **Self-healing.** If the record is deleted in Cloudflare, the next check
   recreates it.
 - **No third-party Python dependencies.** It uses Home Assistant's own HTTP
@@ -57,7 +57,8 @@ The config flow then asks for:
 | **Zone** | Skipped if the token only reaches one zone. |
 | **Record name** | A single label such as `home`, a full name in the selected zone such as `home.example.com`, or `@` for the domain itself. Names with dots must be full names in the zone. |
 | **IPv4 / IPv6** | Which record types to track. |
-| **Proxied** | Only applied to records this integration creates. |
+| **Proxied** | Applied to records this integration creates, and existing records only when proxy sync is enabled. |
+| **Keep proxy setting in sync** | Correct existing records to match **Proxied**. Off by default. |
 | **TTL** | Seconds, or `1` for automatic. Ignored on proxied records. |
 | **Check every** | Minutes between checks. Default 5. |
 

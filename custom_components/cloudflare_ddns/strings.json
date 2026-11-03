@@ -26,12 +26,14 @@
           "ipv4": "Track IPv4 (A record)",
           "ipv6": "Track IPv6 (AAAA record)",
           "proxied": "Proxy through Cloudflare",
+          "sync_proxied": "Keep proxy setting in sync",
           "ttl": "TTL",
           "update_interval": "Check every"
         },
         "data_description": {
           "record_name": "A single label such as 'home', a full name in this zone such as 'home.example.com', or '@' for the domain itself. Names with dots must be full names in this zone.",
-          "proxied": "Proxying hides your real address behind Cloudflare, which defeats most reasons to run dynamic DNS. Leave this off unless the name is only used for web traffic.",
+          "proxied": "Proxying hides your real address behind Cloudflare, which defeats most reasons to run dynamic DNS. Leave this off unless the name is only used for web traffic. This setting applies to records this integration creates, and to existing records only when Keep proxy setting in sync is on.",
+          "sync_proxied": "When enabled, correct existing records to match the proxy setting above.",
           "ttl": "Seconds, or 1 for automatic. Ignored on proxied records, which Cloudflare always sets to automatic.",
           "update_interval": "Minutes between checks. Cloudflare is only written to when the address actually changed."
         }
@@ -70,11 +72,13 @@
           "ipv4": "Track IPv4 (A record)",
           "ipv6": "Track IPv6 (AAAA record)",
           "proxied": "Proxy through Cloudflare",
+          "sync_proxied": "Keep proxy setting in sync",
           "ttl": "TTL",
           "update_interval": "Check every"
         },
         "data_description": {
-          "proxied": "Only applied to records this integration creates. Existing records keep their current setting, because updates never touch it.",
+          "proxied": "This setting applies to records this integration creates, and to existing records only when Keep proxy setting in sync is on.",
+          "sync_proxied": "When enabled, correct existing records to match the proxy setting above.",
           "ttl": "Seconds, or 1 for automatic. Ignored on proxied records.",
           "update_interval": "Minutes between checks."
         }

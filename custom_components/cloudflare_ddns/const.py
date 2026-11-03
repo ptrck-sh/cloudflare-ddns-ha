@@ -15,12 +15,14 @@ CONF_RECORD_NAME: Final = "record_name"
 CONF_IPV4: Final = "ipv4"
 CONF_IPV6: Final = "ipv6"
 CONF_PROXIED: Final = "proxied"
+CONF_SYNC_PROXIED: Final = "sync_proxied"
 CONF_TTL: Final = "ttl"
 CONF_UPDATE_INTERVAL: Final = "update_interval"
 
 DEFAULT_IPV4: Final = True
 DEFAULT_IPV6: Final = False
 DEFAULT_PROXIED: Final = False
+DEFAULT_SYNC_PROXIED: Final = False
 DEFAULT_TTL: Final = 1
 DEFAULT_UPDATE_INTERVAL: Final = 5
 
