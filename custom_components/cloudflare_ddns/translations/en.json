@@ -84,7 +84,7 @@
           "ttl": "Seconds, or 1 for automatic. Ignored on proxied records.",
           "update_interval": "Minutes between checks.",
           "notify": "Show a Home Assistant notification when the record changes, and with All also when two checks in a row fail.",
-          "notify_targets": "Notify actions that also get each notification as a push, for example notify.mobile_app_<phone>. Uses the level above."
+          "notify_targets": "Notify actions that also get each notification as a push, for example notify.mobile_app_pixel_9. Uses the level above."
         }
       }
     },
