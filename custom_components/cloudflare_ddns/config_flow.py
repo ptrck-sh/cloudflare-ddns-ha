@@ -12,7 +12,7 @@ from homeassistant.config_entries import (
     ConfigFlowResult,
     OptionsFlow,
 )
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     BooleanSelector,
@@ -39,6 +39,7 @@ from .const import (
     CONF_IPV4,
     CONF_IPV6,
     CONF_NOTIFY,
+    CONF_NOTIFY_TARGETS,
     CONF_PROXIED,
     CONF_RECORD_NAME,
     CONF_SYNC_PROXIED,
@@ -367,6 +368,7 @@ class CloudflareDdnsOptionsFlow(OptionsFlow):
                         CONF_TTL: int(user_input[CONF_TTL]),
                         CONF_UPDATE_INTERVAL: int(user_input[CONF_UPDATE_INTERVAL]),
                         CONF_NOTIFY: user_input[CONF_NOTIFY],
+                        CONF_NOTIFY_TARGETS: user_input.get(CONF_NOTIFY_TARGETS, []),
                     }
                 )
 
@@ -418,6 +420,17 @@ class CloudflareDdnsOptionsFlow(OptionsFlow):
                             translation_key=CONF_NOTIFY,
                         )
                     ),
+                    vol.Optional(
+                        CONF_NOTIFY_TARGETS,
+                        default=options.get(CONF_NOTIFY_TARGETS, []),
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=_notify_targets(self.hass),
+                            multiple=True,
+                            custom_value=True,
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
                 }
             ),
             errors=errors,
@@ -446,3 +459,11 @@ def _normalise_record_name(value: str, zone_name: str) -> str:
     if "." not in name:
         return f"{name}.{zone_name}"
     return name
+
+
+def _notify_targets(hass: HomeAssistant) -> list[str]:
+    return sorted(
+        f"notify.{service}"
+        for service in hass.services.async_services().get("notify", {})
+        if service not in ("send_message", "persistent_notification")
+    )

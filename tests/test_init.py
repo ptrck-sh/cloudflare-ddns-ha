@@ -11,11 +11,13 @@ from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
     async_capture_events,
     async_fire_time_changed,
+    async_mock_service,
 )
 
 from custom_components.cloudflare_ddns.const import (
     CONF_IPV6,
     CONF_NOTIFY,
+    CONF_NOTIFY_TARGETS,
     CONF_SYNC_PROXIED,
     DOMAIN,
     EVENT_RECORD_FAILED,
@@ -392,3 +394,29 @@ async def test_failure_notifies_once_and_clears(
     await hass.async_block_till_done(wait_background_tasks=True)
 
     notifications.async_dismiss.assert_called_once()
+
+
+async def test_ip_change_is_pushed_to_notify_targets(
+    hass: HomeAssistant, cloudflare, config_entry, caplog
+) -> None:
+    calls = async_mock_service(hass, "notify", "mobile_app_phone")
+    config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        config_entry,
+        options={
+            **config_entry.options,
+            CONF_NOTIFY_TARGETS: ["notify.missing", "notify.mobile_app_phone"],
+        },
+    )
+    cloudflare.add_record("A", OLD_V4)
+
+    await _setup(hass, config_entry)
+    await hass.async_block_till_done(wait_background_tasks=True)
+
+    assert [call.data for call in calls] == [
+        {
+            "title": "Cloudflare DDNS updated",
+            "message": f"{RECORD_NAME} (A): {OLD_V4} → {PUBLIC_V4}",
+        }
+    ]
+    assert "Could not notify notify.missing" in caplog.text

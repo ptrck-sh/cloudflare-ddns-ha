@@ -99,9 +99,14 @@ Each record keeps one notification per kind and address family, so a newer
 change replaces the older one. A failed check notifies once per distinct
 error, and that notification goes away after the next successful check.
 
-For anything else — Discord, mobile push — the integration fires an event
-and you automate on it. The quickest way is the notification blueprint. Import it, then pick any
-actions for "updated" and "failed" — a Discord message, a phone push, a
+To get the same notifications as a push on your phone, pick the companion
+app's notify action, for example `notify.mobile_app_<phone>`, under
+**Configure → Also send to**. Any notify action that needs no target works
+there; several can be picked.
+
+For anything else, such as Discord, the integration fires an event and you
+automate on it. The quickest way is the notification blueprint. Import it,
+then pick any actions for "updated" and "failed" — a Discord message, a phone push, a
 script:
 
 [![Import blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fptrck-sh%2Fcloudflare-ddns-ha%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fcloudflare_ddns_notify.yaml)

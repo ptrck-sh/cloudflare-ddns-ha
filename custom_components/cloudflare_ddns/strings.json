@@ -75,14 +75,16 @@
           "sync_proxied": "Keep proxy setting in sync",
           "ttl": "TTL",
           "update_interval": "Check every",
-          "notify": "Notifications"
+          "notify": "Notifications",
+          "notify_targets": "Also send to"
         },
         "data_description": {
           "proxied": "This setting applies to records this integration creates, and to existing records only when Keep proxy setting in sync is on.",
           "sync_proxied": "When enabled, correct existing records to match the proxy setting above.",
           "ttl": "Seconds, or 1 for automatic. Ignored on proxied records.",
           "update_interval": "Minutes between checks.",
-          "notify": "Show a Home Assistant notification when the record changes, and with All also when a check fails."
+          "notify": "Show a Home Assistant notification when the record changes, and with All also when a check fails.",
+          "notify_targets": "Notify actions that also get each notification as a push, for example notify.mobile_app_<phone>. Uses the level above."
         }
       }
     },

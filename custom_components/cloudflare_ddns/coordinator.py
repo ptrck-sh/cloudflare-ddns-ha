@@ -6,10 +6,11 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
+import voluptuous as vol
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
@@ -27,6 +28,7 @@ from .const import (
     CONF_IPV4,
     CONF_IPV6,
     CONF_NOTIFY,
+    CONF_NOTIFY_TARGETS,
     CONF_PROXIED,
     CONF_RECORD_NAME,
     CONF_SYNC_PROXIED,
@@ -149,22 +151,41 @@ class CloudflareDdnsCoordinator(DataUpdateCoordinator[CloudflareDdnsData]):
         if self._notify == NOTIFY_OFF:
             return
         change = f"{old_ip} → {new_ip}" if old_ip else f"created with {new_ip}"
-        persistent_notification.async_create(
-            self.hass,
-            f"{self.record_name} ({state.record_type}): {change}",
-            title="Cloudflare DDNS updated",
-            notification_id=self._notification_id(state, "updated"),
-        )
+        self._send(state, "updated", "Cloudflare DDNS updated", change)
 
     def _notify_failed(self, state: FamilyState) -> None:
         if self._notify != NOTIFY_ALL:
             return
+        self._send(state, "failed", "Cloudflare DDNS failed", state.error or "")
+
+    def _send(self, state: FamilyState, kind: str, title: str, text: str) -> None:
+        message = f"{self.record_name} ({state.record_type}): {text}"
         persistent_notification.async_create(
             self.hass,
-            f"{self.record_name} ({state.record_type}): {state.error}",
-            title="Cloudflare DDNS failed",
-            notification_id=self._notification_id(state, "failed"),
+            message,
+            title=title,
+            notification_id=self._notification_id(state, kind),
         )
+        targets = self.config_entry.options.get(CONF_NOTIFY_TARGETS, [])
+        if targets:
+            self.config_entry.async_create_background_task(
+                self.hass,
+                self._async_push(targets, title, message),
+                name=f"{DOMAIN} notify",
+            )
+
+    async def _async_push(self, targets: list[str], title: str, message: str) -> None:
+        for target in targets:
+            domain, _, service = target.partition(".")
+            try:
+                await self.hass.services.async_call(
+                    domain,
+                    service,
+                    {"title": title, "message": message},
+                    blocking=True,
+                )
+            except (HomeAssistantError, vol.Invalid) as err:
+                _LOGGER.warning("Could not notify %s: %s", target, err)
 
     @property
     def _comment(self) -> str:
