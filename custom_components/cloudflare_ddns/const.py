@@ -47,10 +47,12 @@ RECORD_TYPE_IPV4: Final = "A"
 RECORD_TYPE_IPV6: Final = "AAAA"
 
 IPV4_PROVIDERS: Final = (
+    "https://1.1.1.1/cdn-cgi/trace",
     "https://api.ipify.org",
     "https://ipv4.icanhazip.com",
 )
 IPV6_PROVIDERS: Final = (
+    "https://[2606:4700:4700::1111]/cdn-cgi/trace",
     "https://api6.ipify.org",
     "https://ipv6.icanhazip.com",
 )
