@@ -19,6 +19,7 @@ from custom_components.cloudflare_ddns.const import (
     CONF_IPV6,
     CONF_PROXIED,
     CONF_RECORD_NAME,
+    CONF_SYNC_PROXIED,
     CONF_TTL,
     CONF_UPDATE_INTERVAL,
     CONF_ZONE_ID,
@@ -62,6 +63,7 @@ class FakeCloudflare:
         name: str = RECORD_NAME,
         ttl: int = 300,
         proxied: bool = False,
+        comment: str | None = None,
     ) -> None:
         self.records[record_type] = {
             "id": f"rec-{record_type}",
@@ -70,6 +72,7 @@ class FakeCloudflare:
             "content": content,
             "ttl": ttl,
             "proxied": proxied,
+            "comment": comment,
         }
 
     def requests(self, method: str) -> list[tuple[str, str, Any]]:
@@ -113,6 +116,7 @@ class FakeCloudflare:
                 name=data["name"],
                 ttl=data.get("ttl", 1),
                 proxied=data["proxied"],
+                comment=data["comment"],
             )
             return self._ok(method, url, self.records[data["type"]])
         if match := re.fullmatch(rf"/zones/{ZONE_ID}/dns_records/rec-(\w+)", path):
@@ -185,6 +189,7 @@ def config_entry() -> MockConfigEntry:
             CONF_IPV4: True,
             CONF_IPV6: False,
             CONF_PROXIED: False,
+            CONF_SYNC_PROXIED: False,
             CONF_TTL: 1,
             CONF_UPDATE_INTERVAL: 5,
         },

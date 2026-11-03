@@ -10,6 +10,7 @@ from custom_components.cloudflare_ddns.const import (
     CONF_IPV6,
     CONF_PROXIED,
     CONF_RECORD_NAME,
+    CONF_SYNC_PROXIED,
     CONF_TTL,
     CONF_UPDATE_INTERVAL,
     CONF_ZONE_ID,
@@ -23,6 +24,7 @@ RECORD_INPUT = {
     CONF_IPV4: True,
     CONF_IPV6: False,
     CONF_PROXIED: False,
+    CONF_SYNC_PROXIED: False,
     CONF_TTL: 1,
     CONF_UPDATE_INTERVAL: 5,
 }
@@ -235,6 +237,7 @@ async def test_options_flow(hass: HomeAssistant, cloudflare, config_entry) -> No
             CONF_IPV4: True,
             CONF_IPV6: False,
             CONF_PROXIED: True,
+            CONF_SYNC_PROXIED: True,
             CONF_TTL: 1,
             CONF_UPDATE_INTERVAL: 10,
         },
@@ -244,3 +247,4 @@ async def test_options_flow(hass: HomeAssistant, cloudflare, config_entry) -> No
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert config_entry.options[CONF_UPDATE_INTERVAL] == 10
     assert config_entry.options[CONF_PROXIED] is True
+    assert config_entry.options[CONF_SYNC_PROXIED] is True

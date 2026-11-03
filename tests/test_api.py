@@ -73,17 +73,24 @@ async def test_public_ip_v6(hass: HomeAssistant, aioclient_mock) -> None:
     assert ip == PUBLIC_V6
 
 
-async def test_update_patches_only_type_name_content(
+async def test_update_patches_only_supplied_fields(
     hass: HomeAssistant, cloudflare
 ) -> None:
     cloudflare.add_record("A", "93.184.216.1", ttl=300, proxied=True)
     client = CloudflareClient(async_get_clientsession(hass), TOKEN)
     record = DnsRecord("rec-A", "A", RECORD_NAME, "93.184.216.1", 300, True)
 
-    updated = await client.async_update_record_content(ZONE_ID, record, PUBLIC_V4)
+    updated = await client.async_update_record(
+        ZONE_ID, record, content=PUBLIC_V4, comment="managed"
+    )
 
     _, _, payload = cloudflare.requests("PATCH")[0]
-    assert payload == {"type": "A", "name": RECORD_NAME, "content": PUBLIC_V4}
+    assert payload == {
+        "type": "A",
+        "name": RECORD_NAME,
+        "content": PUBLIC_V4,
+        "comment": "managed",
+    }
     assert updated.proxied is True
     assert updated.ttl == 300
 
@@ -95,12 +102,19 @@ async def test_create_omits_ttl_when_proxied(
     client = CloudflareClient(async_get_clientsession(hass), TOKEN)
 
     await client.async_create_record(
-        ZONE_ID, "A", RECORD_NAME, PUBLIC_V4, ttl=120, proxied=proxied
+        ZONE_ID,
+        "A",
+        RECORD_NAME,
+        PUBLIC_V4,
+        ttl=120,
+        proxied=proxied,
+        comment="managed",
     )
 
     _, _, payload = cloudflare.requests("POST")[0]
     assert ("ttl" in payload) is has_ttl
     assert payload["proxied"] is proxied
+    assert payload["comment"] == "managed"
 
 
 async def test_auth_error(hass: HomeAssistant, cloudflare) -> None:

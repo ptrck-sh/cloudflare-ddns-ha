@@ -27,12 +27,14 @@ from .const import (
     CONF_IPV6,
     CONF_PROXIED,
     CONF_RECORD_NAME,
+    CONF_SYNC_PROXIED,
     CONF_TTL,
     CONF_UPDATE_INTERVAL,
     CONF_ZONE_ID,
     DEFAULT_IPV4,
     DEFAULT_IPV6,
     DEFAULT_PROXIED,
+    DEFAULT_SYNC_PROXIED,
     DEFAULT_TTL,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
@@ -47,6 +49,11 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 type CloudflareDdnsConfigEntry = ConfigEntry[CloudflareDdnsCoordinator]
+
+
+def managed_comment(hass: HomeAssistant) -> str:
+    """Return the Cloudflare comment that marks a record as managed here."""
+    return f"managed by cloudflare-ddns on {hass.config.location_name}"[:100]
 
 
 @dataclass(slots=True)
@@ -119,6 +126,15 @@ class CloudflareDdnsCoordinator(DataUpdateCoordinator[CloudflareDdnsData]):
     def _proxied(self) -> bool:
         return self.config_entry.options.get(CONF_PROXIED, DEFAULT_PROXIED)
 
+    @property
+    def _sync_proxied(self) -> bool:
+        return self.config_entry.options.get(CONF_SYNC_PROXIED, DEFAULT_SYNC_PROXIED)
+
+    @property
+    def _comment(self) -> str:
+        """Return the Cloudflare comment that identifies this managed record."""
+        return managed_comment(self.hass)
+
     async def _async_update_data(self) -> CloudflareDdnsData:
         """Reconcile every enabled record type with the current public IP.
 
@@ -187,20 +203,28 @@ class CloudflareDdnsCoordinator(DataUpdateCoordinator[CloudflareDdnsData]):
                 state.public_ip,
                 ttl=self._ttl,
                 proxied=self._proxied,
+                comment=self._comment,
             )
             state.record = record
             state.last_updated = dt_util.utcnow()
             self._fire_updated(state, old_ip=None, new_ip=state.public_ip, created=True)
             return
 
-        if record.content == state.public_ip:
+        content_changed = record.content != state.public_ip
+        comment_changed = record.comment != self._comment
+        proxied_changed = self._sync_proxied and record.proxied != self._proxied
+        if not (content_changed or comment_changed or proxied_changed):
             state.record = record
             return
 
         old_ip = record.content
         try:
-            state.record = await self.client.async_update_record_content(
-                self.zone_id, record, state.public_ip
+            state.record = await self.client.async_update_record(
+                self.zone_id,
+                record,
+                content=state.public_ip if content_changed else None,
+                comment=self._comment if comment_changed else None,
+                proxied=self._proxied if proxied_changed else None,
             )
         except CloudflareError as err:
             state.record = record
@@ -217,15 +241,22 @@ class CloudflareDdnsCoordinator(DataUpdateCoordinator[CloudflareDdnsData]):
             )
             raise
 
-        state.last_updated = dt_util.utcnow()
-        _LOGGER.info(
-            "Updated %s %s: %s -> %s",
-            self.record_name,
-            state.record_type,
-            old_ip,
-            state.public_ip,
-        )
-        self._fire_updated(state, old_ip=old_ip, new_ip=state.public_ip, created=False)
+        if content_changed:
+            state.last_updated = dt_util.utcnow()
+            _LOGGER.info(
+                "Updated %s %s: %s -> %s",
+                self.record_name,
+                state.record_type,
+                old_ip,
+                state.public_ip,
+            )
+            self._fire_updated(
+                state, old_ip=old_ip, new_ip=state.public_ip, created=False
+            )
+        else:
+            _LOGGER.info(
+                "Corrected settings for %s %s", self.record_name, state.record_type
+            )
 
     def _fire_updated(
         self,
