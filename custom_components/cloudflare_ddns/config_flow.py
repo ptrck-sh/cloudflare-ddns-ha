@@ -12,7 +12,7 @@ from homeassistant.config_entries import (
     ConfigFlowResult,
     OptionsFlow,
 )
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     BooleanSelector,
@@ -38,6 +38,8 @@ from .const import (
     CONF_API_TOKEN,
     CONF_IPV4,
     CONF_IPV6,
+    CONF_NOTIFY,
+    CONF_NOTIFY_TARGETS,
     CONF_PROXIED,
     CONF_RECORD_NAME,
     CONF_SYNC_PROXIED,
@@ -47,6 +49,7 @@ from .const import (
     CONF_ZONE_NAME,
     DEFAULT_IPV4,
     DEFAULT_IPV6,
+    DEFAULT_NOTIFY,
     DEFAULT_PROXIED,
     DEFAULT_SYNC_PROXIED,
     DEFAULT_TTL,
@@ -56,6 +59,9 @@ from .const import (
     IPV6_PROVIDERS,
     MAX_UPDATE_INTERVAL,
     MIN_UPDATE_INTERVAL,
+    NOTIFY_ALL,
+    NOTIFY_OFF,
+    NOTIFY_SUCCESS,
     RECORD_TYPE_IPV4,
     RECORD_TYPE_IPV6,
 )
@@ -361,6 +367,8 @@ class CloudflareDdnsOptionsFlow(OptionsFlow):
                         CONF_SYNC_PROXIED: user_input[CONF_SYNC_PROXIED],
                         CONF_TTL: int(user_input[CONF_TTL]),
                         CONF_UPDATE_INTERVAL: int(user_input[CONF_UPDATE_INTERVAL]),
+                        CONF_NOTIFY: user_input[CONF_NOTIFY],
+                        CONF_NOTIFY_TARGETS: user_input.get(CONF_NOTIFY_TARGETS, []),
                     }
                 )
 
@@ -402,6 +410,27 @@ class CloudflareDdnsOptionsFlow(OptionsFlow):
                             unit_of_measurement="min",
                         )
                     ),
+                    vol.Required(
+                        CONF_NOTIFY,
+                        default=options.get(CONF_NOTIFY, DEFAULT_NOTIFY),
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=[NOTIFY_OFF, NOTIFY_SUCCESS, NOTIFY_ALL],
+                            mode=SelectSelectorMode.DROPDOWN,
+                            translation_key=CONF_NOTIFY,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_NOTIFY_TARGETS,
+                        default=options.get(CONF_NOTIFY_TARGETS, []),
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=_notify_targets(self.hass),
+                            multiple=True,
+                            custom_value=True,
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
                 }
             ),
             errors=errors,
@@ -430,3 +459,11 @@ def _normalise_record_name(value: str, zone_name: str) -> str:
     if "." not in name:
         return f"{name}.{zone_name}"
     return name
+
+
+def _notify_targets(hass: HomeAssistant) -> list[str]:
+    return sorted(
+        f"notify.{service}"
+        for service in hass.services.async_services().get("notify", {})
+        if service not in ("send_message", "persistent_notification")
+    )

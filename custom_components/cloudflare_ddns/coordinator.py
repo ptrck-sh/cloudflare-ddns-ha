@@ -6,10 +6,13 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
+import voluptuous as vol
+from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -25,6 +28,8 @@ from .const import (
     CONF_API_TOKEN,
     CONF_IPV4,
     CONF_IPV6,
+    CONF_NOTIFY,
+    CONF_NOTIFY_TARGETS,
     CONF_PROXIED,
     CONF_RECORD_NAME,
     CONF_SYNC_PROXIED,
@@ -33,6 +38,7 @@ from .const import (
     CONF_ZONE_ID,
     DEFAULT_IPV4,
     DEFAULT_IPV6,
+    DEFAULT_NOTIFY,
     DEFAULT_PROXIED,
     DEFAULT_SYNC_PROXIED,
     DEFAULT_TTL,
@@ -40,10 +46,14 @@ from .const import (
     DOMAIN,
     EVENT_RECORD_FAILED,
     EVENT_RECORD_UPDATED,
+    FAILURES_BEFORE_NOTIFY,
     IPV4_PROVIDERS,
     IPV6_PROVIDERS,
+    NOTIFY_ALL,
+    NOTIFY_OFF,
     RECORD_TYPE_IPV4,
     RECORD_TYPE_IPV6,
+    RETRY_DELAY,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -105,6 +115,9 @@ class CloudflareDdnsCoordinator(DataUpdateCoordinator[CloudflareDdnsData]):
         self.client = CloudflareClient(self._session, config_entry.data[CONF_API_TOKEN])
         self.zone_id: str = config_entry.data[CONF_ZONE_ID]
         self.record_name: str = config_entry.data[CONF_RECORD_NAME]
+        self._failures: dict[str, int] = {}
+        self._unsub_retry: CALLBACK_TYPE | None = None
+        config_entry.async_on_unload(self._cancel_retry)
 
         interval = config_entry.options.get(
             CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL
@@ -129,6 +142,64 @@ class CloudflareDdnsCoordinator(DataUpdateCoordinator[CloudflareDdnsData]):
     @property
     def _sync_proxied(self) -> bool:
         return self.config_entry.options.get(CONF_SYNC_PROXIED, DEFAULT_SYNC_PROXIED)
+
+    @property
+    def _notify(self) -> str:
+        return self.config_entry.options.get(CONF_NOTIFY, DEFAULT_NOTIFY)
+
+    def _notification_id(self, state: FamilyState, kind: str) -> str:
+        return f"{DOMAIN}_{self.config_entry.entry_id}_{state.record_type}_{kind}"
+
+    def _notify_updated(
+        self, state: FamilyState, old_ip: str | None, new_ip: str
+    ) -> None:
+        if self._notify == NOTIFY_OFF:
+            return
+        change = f"{old_ip} → {new_ip}" if old_ip else f"created with {new_ip}"
+        self._send(state, "updated", "Cloudflare DDNS updated", change)
+
+    def _notify_failed(self, state: FamilyState) -> None:
+        if self._notify != NOTIFY_ALL:
+            return
+        self._send(state, "failed", "Cloudflare DDNS failed", state.error or "")
+
+    def _send(self, state: FamilyState, kind: str, title: str, text: str) -> None:
+        message = f"{self.record_name} ({state.record_type}): {text}"
+        persistent_notification.async_create(
+            self.hass,
+            message,
+            title=title,
+            notification_id=self._notification_id(state, kind),
+        )
+        targets = self.config_entry.options.get(CONF_NOTIFY_TARGETS, [])
+        if targets:
+            self.config_entry.async_create_background_task(
+                self.hass,
+                self._async_push(targets, title, message),
+                name=f"{DOMAIN} notify",
+            )
+
+    async def _async_push(self, targets: list[str], title: str, message: str) -> None:
+        for target in targets:
+            domain, _, service = target.partition(".")
+            try:
+                await self.hass.services.async_call(
+                    domain,
+                    service,
+                    {"title": title, "message": message},
+                    blocking=True,
+                )
+            except (HomeAssistantError, vol.Invalid) as err:
+                _LOGGER.warning("Could not notify %s: %s", target, err)
+
+    async def _async_retry(self, _now: datetime) -> None:
+        self._unsub_retry = None
+        await self.async_request_refresh()
+
+    def _cancel_retry(self) -> None:
+        if self._unsub_retry:
+            self._unsub_retry()
+            self._unsub_retry = None
 
     @property
     def _comment(self) -> str:
@@ -166,6 +237,25 @@ class CloudflareDdnsCoordinator(DataUpdateCoordinator[CloudflareDdnsData]):
             except (CloudflareError, PublicIpError) as err:
                 state.error = str(err)
                 _LOGGER.warning("%s (%s): %s", self.record_name, record_type, err)
+                self._failures[record_type] = self._failures.get(record_type, 0) + 1
+                if self._failures[record_type] == FAILURES_BEFORE_NOTIFY:
+                    self._notify_failed(state)
+            else:
+                if self._failures.pop(record_type, 0) >= FAILURES_BEFORE_NOTIFY:
+                    persistent_notification.async_dismiss(
+                        self.hass, self._notification_id(state, "failed")
+                    )
+
+        if (
+            self.data is not None
+            and 1 in self._failures.values()
+            and self.update_interval
+            and self.update_interval > RETRY_DELAY
+        ):
+            self._cancel_retry()
+            self._unsub_retry = async_call_later(
+                self.hass, RETRY_DELAY, self._async_retry
+            )
 
         active = [s for s in data.families.values() if s.enabled]
         if active and all(s.error for s in active):
@@ -279,3 +369,4 @@ class CloudflareDdnsCoordinator(DataUpdateCoordinator[CloudflareDdnsData]):
                 "proxied": state.record.proxied if state.record else None,
             },
         )
+        self._notify_updated(state, old_ip, new_ip)

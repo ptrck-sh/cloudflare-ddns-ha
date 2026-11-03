@@ -257,7 +257,7 @@ async def async_get_public_ip(
         try:
             async with session.get(url, timeout=timeout) as resp:
                 resp.raise_for_status()
-                raw = (await resp.text()).strip()
+                raw = _parse_ip(await resp.text())
         except (aiohttp.ClientError, TimeoutError) as err:
             errors.append(f"{url}: {err}")
             continue
@@ -270,6 +270,13 @@ async def async_get_public_ip(
     family = "IPv6" if want_v6 else "IPv4"
     detail = "; ".join(errors)
     raise PublicIpError(f"Could not determine public {family} address. {detail}")
+
+
+def _parse_ip(text: str) -> str:
+    for line in text.splitlines():
+        if line.startswith("ip="):
+            return line[3:].strip()
+    return text.strip()
 
 
 def _is_valid_ip(value: str, *, want_v6: bool) -> bool:
