@@ -145,6 +145,14 @@ async def test_invalid_auth(hass: HomeAssistant, cloudflare) -> None:
     assert result["errors"] == {"base": "invalid_auth"}
 
 
+async def test_account_token(hass: HomeAssistant, cloudflare) -> None:
+    cloudflare.account_token = True
+
+    result = await _start(hass)
+
+    assert not result.get("errors")
+
+
 async def test_no_zones(hass: HomeAssistant, cloudflare) -> None:
     cloudflare.zones.clear()
 

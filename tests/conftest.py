@@ -50,6 +50,7 @@ class FakeCloudflare:
     )
     records: dict[str, dict[str, Any]] = field(default_factory=dict)
     token_ok: bool = True
+    account_token: bool = False
     fail_patch: bool = False
     public_v4: str | None = PUBLIC_V4
     public_v6: str | None = None
@@ -91,6 +92,16 @@ class FakeCloudflare:
                 HTTPStatus.UNAUTHORIZED,
             )
 
+        if path == "/user/tokens/verify" and self.account_token:
+            return self._reply(
+                method,
+                url,
+                {
+                    "success": False,
+                    "errors": [{"code": 1000, "message": "Invalid API Token"}],
+                },
+                HTTPStatus.UNAUTHORIZED,
+            )
         if path == "/user/tokens/verify":
             return self._ok(method, url, {"status": "active"})
         if path == "/zones":

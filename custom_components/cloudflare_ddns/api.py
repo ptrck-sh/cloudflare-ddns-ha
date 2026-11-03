@@ -146,7 +146,11 @@ class CloudflareClient:
 
     async def async_verify_token(self) -> None:
         """Check the token is valid. Raises on failure."""
-        result = await self._request("GET", "/user/tokens/verify")
+        try:
+            result = await self._request("GET", "/user/tokens/verify")
+        except CloudflareAuthError:
+            await self._request("GET", "/zones", params={"per_page": "1"})
+            return
         if isinstance(result, dict) and result.get("status") != "active":
             raise CloudflareAuthError(f"Token status is {result.get('status')!r}")
 

@@ -125,6 +125,18 @@ async def test_auth_error(hass: HomeAssistant, cloudflare) -> None:
         await client.async_verify_token()
 
 
+async def test_verify_accepts_account_token(hass: HomeAssistant, cloudflare) -> None:
+    cloudflare.account_token = True
+    client = CloudflareClient(async_get_clientsession(hass), TOKEN)
+
+    await client.async_verify_token()
+
+    assert [path for _, path, _ in cloudflare.calls] == [
+        "/user/tokens/verify",
+        "/zones",
+    ]
+
+
 async def test_get_zones_paginates(hass: HomeAssistant, cloudflare) -> None:
     cloudflare.zones.extend(
         {"id": f"zone-{number}", "name": f"example-{number}.com"}
