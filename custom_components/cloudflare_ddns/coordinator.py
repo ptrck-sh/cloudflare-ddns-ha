@@ -9,9 +9,10 @@ from datetime import datetime, timedelta
 import voluptuous as vol
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -52,6 +53,7 @@ from .const import (
     NOTIFY_OFF,
     RECORD_TYPE_IPV4,
     RECORD_TYPE_IPV6,
+    RETRY_DELAY,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -114,6 +116,8 @@ class CloudflareDdnsCoordinator(DataUpdateCoordinator[CloudflareDdnsData]):
         self.zone_id: str = config_entry.data[CONF_ZONE_ID]
         self.record_name: str = config_entry.data[CONF_RECORD_NAME]
         self._failures: dict[str, int] = {}
+        self._unsub_retry: CALLBACK_TYPE | None = None
+        config_entry.async_on_unload(self._cancel_retry)
 
         interval = config_entry.options.get(
             CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL
@@ -188,6 +192,15 @@ class CloudflareDdnsCoordinator(DataUpdateCoordinator[CloudflareDdnsData]):
             except (HomeAssistantError, vol.Invalid) as err:
                 _LOGGER.warning("Could not notify %s: %s", target, err)
 
+    async def _async_retry(self, _now: datetime) -> None:
+        self._unsub_retry = None
+        await self.async_request_refresh()
+
+    def _cancel_retry(self) -> None:
+        if self._unsub_retry:
+            self._unsub_retry()
+            self._unsub_retry = None
+
     @property
     def _comment(self) -> str:
         """Return the Cloudflare comment that identifies this managed record."""
@@ -232,6 +245,17 @@ class CloudflareDdnsCoordinator(DataUpdateCoordinator[CloudflareDdnsData]):
                     persistent_notification.async_dismiss(
                         self.hass, self._notification_id(state, "failed")
                     )
+
+        if (
+            self.data is not None
+            and 1 in self._failures.values()
+            and self.update_interval
+            and self.update_interval > RETRY_DELAY
+        ):
+            self._cancel_retry()
+            self._unsub_retry = async_call_later(
+                self.hass, RETRY_DELAY, self._async_retry
+            )
 
         active = [s for s in data.families.values() if s.enabled]
         if active and all(s.error for s in active):

@@ -439,3 +439,24 @@ async def test_single_failure_stays_quiet(
     titles = [c.kwargs["title"] for c in notifications.async_create.call_args_list]
     assert "Cloudflare DDNS failed" not in titles
     notifications.async_dismiss.assert_not_called()
+
+
+async def test_failure_is_retried_after_a_minute(
+    hass: HomeAssistant, cloudflare, config_entry, notifications
+) -> None:
+    cloudflare.add_record("A", PUBLIC_V4, comment=_managed_comment(hass))
+    await _setup(hass, config_entry)
+
+    cloudflare.records["A"]["content"] = OLD_V4
+    cloudflare.fail_patch = True
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=6))
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert len(cloudflare.requests("PATCH")) == 1
+
+    cloudflare.fail_patch = False
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=7, seconds=30))
+    await hass.async_block_till_done(wait_background_tasks=True)
+
+    assert len(cloudflare.requests("PATCH")) == 2
+    assert cloudflare.records["A"]["content"] == PUBLIC_V4
+    assert hass.states.get(SYNC_A).state == STATE_OFF

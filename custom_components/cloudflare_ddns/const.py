@@ -33,6 +33,7 @@ NOTIFY_SUCCESS: Final = "success"
 NOTIFY_ALL: Final = "all"
 DEFAULT_NOTIFY: Final = NOTIFY_ALL
 FAILURES_BEFORE_NOTIFY: Final = 2
+RETRY_DELAY: Final = timedelta(minutes=1)
 
 MIN_UPDATE_INTERVAL: Final = 1
 MAX_UPDATE_INTERVAL: Final = 1440
