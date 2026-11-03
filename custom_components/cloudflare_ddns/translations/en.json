@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Cloudflare API token",
-        "description": "Create a token at My Profile → API Tokens with permission Zone → DNS → Edit on the zone you want to keep updated.",
+        "description": "Create a token at Manage Account → Account API Tokens (or My Profile → API Tokens) with permission Zone → DNS → Edit on the zone you want to keep updated.",
         "data": {
           "api_token": "API token"
         },

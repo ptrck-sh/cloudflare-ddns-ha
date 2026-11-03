@@ -46,8 +46,10 @@ into your `config/custom_components/` directory and restart.
 ## Setup
 
 You need a Cloudflare API token with **Zone → DNS → Edit** on the zone.
-Create one at **Cloudflare dashboard → My Profile → API Tokens → Create
-Token**, using the *Edit zone DNS* template.
+Create one at **Cloudflare dashboard → Manage Account → Account API Tokens
+→ Create Token**, using the *Edit zone DNS* template. An account token
+stays inside one account and keeps working when a member leaves. A user
+token from **My Profile → API Tokens** works too.
 
 The config flow then asks for:
 
