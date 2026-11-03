@@ -100,6 +100,28 @@ Inside those actions, `record_name`, `record_type`, `old_ip`, `new_ip`,
 `created`, `proxied` and `error` are available as variables, for example
 `{{ record_name }}: {{ old_ip }} -> {{ new_ip }}`.
 
+### Discord
+
+With a bot: set up Home Assistant's Discord integration with the bot token,
+then pick `notify.discord` in the blueprint with the channel ID as target.
+
+With a webhook URL, no Discord integration is needed. Add a `rest_command`
+to `configuration.yaml`, put the URL in `secrets.yaml` as
+`discord_ddns_webhook` and restart Home Assistant:
+
+```yaml
+rest_command:
+  discord_webhook:
+    url: !secret discord_ddns_webhook
+    method: POST
+    content_type: application/json
+    payload: '{"content": {{ message | tojson }}}'
+```
+
+In the blueprint, pick `rest_command.discord_webhook` with for example
+`message: "{{ record_name }}: {{ old_ip }} -> {{ new_ip }}"` for updates and
+`message: "{{ record_name }} failed: {{ error }}"` for failures.
+
 Or write the automation yourself:
 
 ```yaml
