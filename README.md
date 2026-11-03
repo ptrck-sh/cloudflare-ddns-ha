@@ -9,8 +9,8 @@ Works on every install type — HA OS, Supervised, Container and Core.
 
 Every few minutes it looks up your public address, compares it with what
 Cloudflare has, and updates the record only if they differ. It exposes the
-result as entities and fires an event when something changes, so you decide
-how you want to be told.
+result as entities, shows a Home Assistant notification when something
+changes and fires an event, so you can also be told any other way.
 
 - **IPv4 and IPv6** — tracks the `A` record, the `AAAA` record, or both.
 - **Creates the record for you** if it does not exist yet, rather than failing
@@ -86,12 +86,29 @@ Per tracked record, per address family:
 
 ## Notifications
 
-The integration does not send messages itself — it fires an event and you
-automate on it. That way you use whatever you already have: Discord, mobile
-push, persistent notification.
+The integration shows Home Assistant notifications, set per record under
+**Configure → Notifications**:
 
-The quickest way is the notification blueprint. Import it, then pick any
-actions for "updated" and "failed" — a Discord message, a phone push, a
+| Level | Notifies on |
+|---|---|
+| **All** (default) | Every IP change or created record, and checks that still fail on retry |
+| **IP changes** | Every IP change or created record |
+| **Off** | Nothing |
+
+Each record keeps one notification per kind and address family, so a newer
+change replaces the older one. A failed check, for example during a short
+internet outage, is retried once after a minute and stays quiet. Only when
+the retry fails too does a notification go out, once, and it goes away
+after the next successful check.
+
+To get the same notifications as a push on your phone, pick the companion
+app's notify action, for example `notify.mobile_app_<phone>`, under
+**Configure → Also send to**. Any notify action that needs no target works
+there; several can be picked.
+
+For anything else, such as Discord, the integration fires an event and you
+automate on it. The quickest way is the notification blueprint. Import it,
+then pick any actions for "updated" and "failed" — a Discord message, a phone push, a
 script:
 
 [![Import blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fptrck-sh%2Fcloudflare-ddns-ha%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fcloudflare_ddns_notify.yaml)
@@ -176,8 +193,9 @@ link-local address, the check fails rather than publishing it.
 **IPv6 needs working IPv6.** On a DS-Lite connection you have IPv6 but no
 usable public IPv4, so track `AAAA` only.
 
-Address lookups use [ipify](https://www.ipify.org/), falling back to
-[icanhazip](https://icanhazip.com/).
+Address lookups ask Cloudflare's trace endpoint on `1.1.1.1` (IPv6:
+`2606:4700:4700::1111`) first, which needs no DNS lookup, then fall back to
+[ipify](https://www.ipify.org/) and [icanhazip](https://icanhazip.com/).
 
 ## YAML alternative
 

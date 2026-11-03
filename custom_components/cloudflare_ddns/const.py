@@ -18,6 +18,8 @@ CONF_PROXIED: Final = "proxied"
 CONF_SYNC_PROXIED: Final = "sync_proxied"
 CONF_TTL: Final = "ttl"
 CONF_UPDATE_INTERVAL: Final = "update_interval"
+CONF_NOTIFY: Final = "notify"
+CONF_NOTIFY_TARGETS: Final = "notify_targets"
 
 DEFAULT_IPV4: Final = True
 DEFAULT_IPV6: Final = False
@@ -25,6 +27,13 @@ DEFAULT_PROXIED: Final = False
 DEFAULT_SYNC_PROXIED: Final = False
 DEFAULT_TTL: Final = 1
 DEFAULT_UPDATE_INTERVAL: Final = 5
+
+NOTIFY_OFF: Final = "off"
+NOTIFY_SUCCESS: Final = "success"
+NOTIFY_ALL: Final = "all"
+DEFAULT_NOTIFY: Final = NOTIFY_ALL
+FAILURES_BEFORE_NOTIFY: Final = 2
+RETRY_DELAY: Final = timedelta(minutes=1)
 
 MIN_UPDATE_INTERVAL: Final = 1
 MAX_UPDATE_INTERVAL: Final = 1440
@@ -38,10 +47,12 @@ RECORD_TYPE_IPV4: Final = "A"
 RECORD_TYPE_IPV6: Final = "AAAA"
 
 IPV4_PROVIDERS: Final = (
+    "https://1.1.1.1/cdn-cgi/trace",
     "https://api.ipify.org",
     "https://ipv4.icanhazip.com",
 )
 IPV6_PROVIDERS: Final = (
+    "https://[2606:4700:4700::1111]/cdn-cgi/trace",
     "https://api6.ipify.org",
     "https://ipv6.icanhazip.com",
 )
