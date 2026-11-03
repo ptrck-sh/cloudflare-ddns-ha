@@ -193,8 +193,9 @@ link-local address, the check fails rather than publishing it.
 **IPv6 needs working IPv6.** On a DS-Lite connection you have IPv6 but no
 usable public IPv4, so track `AAAA` only.
 
-Address lookups use [ipify](https://www.ipify.org/), falling back to
-[icanhazip](https://icanhazip.com/).
+Address lookups ask Cloudflare's trace endpoint on `1.1.1.1` (IPv6:
+`2606:4700:4700::1111`) first, which needs no DNS lookup, then fall back to
+[ipify](https://www.ipify.org/) and [icanhazip](https://icanhazip.com/).
 
 ## YAML alternative
 

@@ -148,3 +148,18 @@ async def test_get_zones_paginates(hass: HomeAssistant, cloudflare) -> None:
 
     assert [zone.id for zone in zones] == [zone["id"] for zone in cloudflare.zones]
     assert [path for _, path, _ in cloudflare.requests("GET")] == ["/zones", "/zones"]
+
+
+async def test_public_ip_reads_cloudflare_trace(
+    hass: HomeAssistant, aioclient_mock
+) -> None:
+    aioclient_mock.get(
+        IPV4_PROVIDERS[0], text=f"fl=123\nh=1.1.1.1\nip={PUBLIC_V4}\nts=1.2\n"
+    )
+
+    ip = await async_get_public_ip(
+        async_get_clientsession(hass), IPV4_PROVIDERS, want_v6=False
+    )
+
+    assert ip == PUBLIC_V4
+    assert aioclient_mock.call_count == 1
