@@ -48,6 +48,17 @@
         "data": {
           "api_token": "API token"
         }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Cloudflare DDNS",
+        "description": "Change the record in {zone} or the token. A record that does not exist yet is created with your current address on the next check; the old record stays in Cloudflare.",
+        "data": {
+          "record_name": "Record name",
+          "api_token": "API token"
+        },
+        "data_description": {
+          "api_token": "Leave empty to keep the current token."
+        }
       }
     },
     "error": {
@@ -57,11 +68,13 @@
       "no_record_type": "Enable IPv4, IPv6, or both.",
       "wrong_zone": "That name is not inside the selected zone.",
       "no_public_ip": "Could not determine your public address, so there is nothing to point the record at.",
-      "create_failed": "Cloudflare refused to create the record. Check the logs for the reason."
+      "create_failed": "Cloudflare refused to create the record. Check the logs for the reason.",
+      "already_configured": "That record is already set up."
     },
     "abort": {
       "already_configured": "That record is already set up.",
-      "reauth_successful": "Re-authentication was successful."
+      "reauth_successful": "Re-authentication was successful.",
+      "reconfigure_successful": "Reconfiguration was successful."
     }
   },
   "options": {

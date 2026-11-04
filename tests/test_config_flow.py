@@ -3,6 +3,7 @@ from __future__ import annotations
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.cloudflare_ddns.const import (
     CONF_API_TOKEN,
@@ -262,3 +263,75 @@ async def test_options_flow(hass: HomeAssistant, cloudflare, config_entry) -> No
     assert config_entry.options[CONF_SYNC_PROXIED] is True
     assert config_entry.options[CONF_NOTIFY] == "success"
     assert config_entry.options[CONF_NOTIFY_TARGETS] == ["notify.mobile_app_phone"]
+
+
+async def test_reconfigure_changes_name_and_keeps_token(
+    hass: HomeAssistant, cloudflare, config_entry
+) -> None:
+    config_entry.add_to_hass(hass)
+
+    result = await config_entry.start_reconfigure_flow(hass)
+    assert result["step_id"] == "reconfigure"
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_RECORD_NAME: "office"}
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert config_entry.data[CONF_RECORD_NAME] == f"office.{ZONE_NAME}"
+    assert config_entry.data[CONF_API_TOKEN] == TOKEN
+    assert config_entry.unique_id == f"{ZONE_ID}:office.{ZONE_NAME}"
+    assert config_entry.title == f"office.{ZONE_NAME}"
+    await hass.async_block_till_done()
+    await hass.config_entries.async_unload(config_entry.entry_id)
+
+
+async def test_reconfigure_replaces_token(
+    hass: HomeAssistant, cloudflare, config_entry
+) -> None:
+    config_entry.add_to_hass(hass)
+
+    result = await config_entry.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_RECORD_NAME: RECORD_NAME, CONF_API_TOKEN: "Bearer new-token"},
+    )
+
+    assert result["reason"] == "reconfigure_successful"
+    assert config_entry.data[CONF_API_TOKEN] == "new-token"
+    assert config_entry.unique_id == f"{ZONE_ID}:{RECORD_NAME}"
+    await hass.async_block_till_done()
+    await hass.config_entries.async_unload(config_entry.entry_id)
+
+
+async def test_reconfigure_rejects_taken_name(
+    hass: HomeAssistant, cloudflare, config_entry
+) -> None:
+    config_entry.add_to_hass(hass)
+    MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=f"{ZONE_ID}:office.{ZONE_NAME}",
+        data={**config_entry.data, CONF_RECORD_NAME: f"office.{ZONE_NAME}"},
+    ).add_to_hass(hass)
+
+    result = await config_entry.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_RECORD_NAME: "office"}
+    )
+
+    assert result["errors"] == {CONF_RECORD_NAME: "already_configured"}
+
+
+async def test_reconfigure_rejects_bad_token(
+    hass: HomeAssistant, cloudflare, config_entry
+) -> None:
+    config_entry.add_to_hass(hass)
+    cloudflare.token_ok = False
+
+    result = await config_entry.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_RECORD_NAME: RECORD_NAME}
+    )
+
+    assert result["errors"] == {"base": "invalid_auth"}

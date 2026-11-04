@@ -305,6 +305,65 @@ class CloudflareDdnsConfigFlow(ConfigFlow, domain=DOMAIN):
             description_placeholders={"record": entry.data[CONF_RECORD_NAME]},
         )
 
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Change the record name or the token of an existing entry."""
+        entry = self._get_reconfigure_entry()
+        zone_name = entry.data[CONF_ZONE_NAME]
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            token = (
+                _strip_bearer(user_input.get(CONF_API_TOKEN, ""))
+                or entry.data[CONF_API_TOKEN]
+            )
+            record_name = _normalise_record_name(
+                user_input[CONF_RECORD_NAME], zone_name
+            )
+            unique_id = f"{entry.data[CONF_ZONE_ID]}:{record_name}"
+
+            if record_name != zone_name and not record_name.endswith(f".{zone_name}"):
+                errors[CONF_RECORD_NAME] = "wrong_zone"
+            elif any(
+                other.unique_id == unique_id and other.entry_id != entry.entry_id
+                for other in self._async_current_entries()
+            ):
+                errors[CONF_RECORD_NAME] = "already_configured"
+            else:
+                client = CloudflareClient(async_get_clientsession(self.hass), token)
+                try:
+                    await client.async_verify_token()
+                    await client.async_get_zone(entry.data[CONF_ZONE_ID])
+                except CloudflareAuthError:
+                    errors["base"] = "invalid_auth"
+                except CloudflareError:
+                    errors["base"] = "cannot_connect"
+                else:
+                    return self.async_update_reload_and_abort(
+                        entry,
+                        unique_id=unique_id,
+                        title=record_name,
+                        data_updates={
+                            CONF_API_TOKEN: token,
+                            CONF_RECORD_NAME: record_name,
+                        },
+                    )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_RECORD_NAME, default=entry.data[CONF_RECORD_NAME]
+                    ): TextSelector(),
+                    vol.Optional(CONF_API_TOKEN): TextSelector(),
+                }
+            ),
+            errors=errors,
+            description_placeholders={"zone": zone_name},
+        )
+
     async def _async_find_missing(self, client: CloudflareClient) -> list[str]:
         """Return the wanted record types that Cloudflare does not have."""
         assert self._zone is not None
