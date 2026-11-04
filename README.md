@@ -23,6 +23,27 @@ changes and fires an event, so you can also be told any other way.
 - **No third-party Python dependencies.** It uses Home Assistant's own HTTP
   session.
 
+## Compared with the built-in Cloudflare integration
+
+Home Assistant ships its own [Cloudflare
+integration](https://www.home-assistant.io/integrations/cloudflare/). It
+updates existing `A` records every 60 minutes, can manage several records
+per entry and needs no HACS. If that is all you need, use it.
+
+This integration is for what the built-in one does not do:
+
+| | Built-in | This integration |
+|---|---|---|
+| IPv6 (`AAAA`) | no | yes |
+| Check interval | 60 minutes, fixed | 1 to 1440 minutes |
+| Entities and diagnostics | no | yes |
+| Events and notifications | no | yes |
+| Creates missing records | no | yes |
+| Proxy sync, managed-by comment | no | yes |
+| Public IP lookup | one service | several, with retry |
+| Several records per entry | yes | no, one entry per record |
+| Install | built in | HACS or manual |
+
 ## Install
 
 Requires Home Assistant 2024.12 or newer.
@@ -69,6 +90,10 @@ all of them can share the same token.
 
 If the record does not exist, the flow offers to create it pointing at your
 current address.
+
+To change the record name or the token later, open the entry's ⋮ menu and
+pick **Reconfigure**. The zone stays the same, and the old record is left in
+Cloudflare.
 
 ## Entities
 
